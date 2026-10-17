@@ -7,7 +7,7 @@
 <h3 align="center">Recover. Verify. Reclaim.</h3>
 
 <p align="center">
-  A local-only desktop app for macOS and Windows that gets your files off damaged or unmountable drives without ever writing to them, proves every copy is byte-for-byte identical, and helps you reclaim disk space.
+  A free, open-source, local-only desktop app for macOS and Windows that gets your files off damaged or unmountable drives without ever writing to them, proves every copy is byte-for-byte identical, and helps you reclaim disk space.
 </p>
 
 <p align="center">
@@ -15,7 +15,8 @@
   <a href="#downloads"><img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blue?style=flat-square" alt="Platform" /></a>
   <img src="https://img.shields.io/badge/Offline-100%25%20Local-17A877?style=flat-square" alt="100% Local" />
   <img src="https://img.shields.io/badge/Source%20Drives-Strictly%20Read--Only-success?style=flat-square" alt="Read Only" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-lightgrey?style=flat-square" alt="License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-2BD9A0?style=flat-square" alt="License: AGPL-3.0" /></a>
+  <a href="#-support-retrova"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat-square" alt="Sponsor" /></a>
 </p>
 
 ---
@@ -124,11 +125,46 @@ Compare the output against the values in [`SHA256SUMS`](https://github.com/jishn
 
 ---
 
-## 👤 Author & Support
+## 🧩 Build from source
+
+Retrova is plain Python with a no-build-step web UI.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r packaging/requirements/common.txt -r packaging/requirements/mac.txt   # or win.txt
+python -m retrova                                            # opens the app window
+python -m retrova --serve-only --port 8930 --token dev       # engine only: http://127.0.0.1:8930/?t=dev
+```
+
+Add `&mock=1` to the URL to try the interface without touching any drive.
+
+Run the tests with `pip install pytest pillow && python -m pytest tests`. The release builds (`packaging/build_all.sh`) need a Debian/Ubuntu x86_64 host. See [SPEC.md](SPEC.md) for how the engine and UI fit together.
+
+---
+
+## 💚 Support Retrova
+
+Retrova is free for everyone rescuing their own files, and it will stay that way. If it saved your photos, your work or your weekend, you can help keep it going:
+
+* **GitHub Sponsors:** [github.com/sponsors/jishnumahanta](https://github.com/sponsors/jishnumahanta)
+* **UPI (India):** see the Support section on the Retrova website
+
+Starring the repo and telling one friend also helps more than you'd think.
+
+---
+
+## 📜 License
+
+Retrova is free software: Copyright © 2026 Jishnu Mahanta, licensed under the [GNU Affero General Public License v3.0](LICENSE). You can use, study, share and modify it under those terms. It comes with **no warranty**.
+
+The name "Retrova" and the Retrova logo are trademarks of Jishnu Mahanta. Forks are welcome, but please give them a different name and icon. Bundled libraries keep their own licences: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+---
+
+## 👤 Author
 
 Designed and built by **Jishnu Mahanta** ([jishnumahanta.in](https://jishnumahanta.in)).
 
-* Website: [retrova.pages.dev](https://retrova.pages.dev)
+* Releases: [github.com/jishnumahanta/retrova/releases](https://github.com/jishnumahanta/retrova/releases)
 * Privacy & Security: See [SECURITY.md](SECURITY.md)
 * Installation Details: See [INSTALL.md](INSTALL.md)
-* License: See [LICENSE](LICENSE)

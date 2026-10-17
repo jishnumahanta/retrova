@@ -1,0 +1,13 @@
+# Windows: pywebview's WinForms/WebView2 backend (pythonnet) + Windows.Media.Ocr via WinRT.
+pythonnet
+clr_loader
+cffi
+pycparser
+winrt-runtime
+winrt-Windows.Foundation
+winrt-Windows.Foundation.Collections
+winrt-Windows.Globalization
+winrt-Windows.Graphics.Imaging
+winrt-Windows.Media.Ocr
+winrt-Windows.Storage
+winrt-Windows.Storage.Streams

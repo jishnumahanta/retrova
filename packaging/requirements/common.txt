@@ -1,0 +1,18 @@
+# Runtime dependencies bundled on every platform (versions pinned in constraints.txt).
+# Keep in sync with SPEC.md "Allowed third-party deps". The build warns when the app
+# imports a third-party module that is not bundled (see rbuild/deps.py import scan).
+pywebview
+proxy_tools        # pywebview dependency, sdist-only on PyPI -> built into a wheel locally
+bottle
+typing_extensions
+psutil
+send2trash
+xxhash
+dissect.cstruct
+dissect.util
+dissect.apfs
+dissect.ntfs
+dissect.fat
+dissect.extfs
+dissect.xfs
+dissect.btrfs

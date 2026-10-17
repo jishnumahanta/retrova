@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Retrova</title>
+<link rel="icon" href="img/glyph.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/views.css">
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<div class="app" id="app" hidden>
+  <aside class="sidebar" id="sidebar" aria-label="Sections">
+    <div class="brand">
+      <img src="img/glyph.svg" alt="" width="26" height="26">
+      <div class="brand-text">
+        <div class="brand-name">Retrova</div>
+        <div class="brand-tag">Recover. Verify. Reclaim.</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot" id="sidebar-foot"></div>
+    <div class="sidebar-ver" id="sidebar-ver"></div>
+  </aside>
+  <main class="main">
+    <header class="toolbar" id="toolbar">
+      <div class="toolbar-title" id="toolbar-title"></div>
+      <div class="toolbar-center" id="toolbar-center"></div>
+      <div class="toolbar-actions" id="toolbar-actions"></div>
+      <div id="activity-pill"></div>
+    </header>
+    <div class="content" id="content" tabindex="-1"></div>
+  </main>
+</div>
+<div class="boot" id="boot"></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>
