@@ -10,6 +10,7 @@ import { toastError, attempt } from '../components/toast.js';
 import { setToolbar } from '../shell.js';
 import { go } from '../router.js';
 import { startedAt } from '../jobs-meta.js';
+import { supportButton } from '../components/support.js';
 
 const LABEL = { OK: 'Matches', MISSING: 'Missing in copy', EXTRA: 'Only in copy', SIZE: 'Size differs', CONTENT: 'Content differs', SRC_BAD: 'Original unreadable', DST_BAD: 'Copy unreadable', LINK: 'Link differs', ERROR: 'Error' };
 const ORDER = ['MISSING', 'SIZE', 'CONTENT', 'DST_BAD', 'ERROR', 'SRC_BAD', 'LINK', 'EXTRA'];
@@ -156,6 +157,8 @@ function renderResults(root, st) {
       const b = [];
       if (!isLive(s) && s.fixable) b.push(h('button.btn.primary', { onclick: () => repair(s) }, icon('wand'), `Repair ${plural(s.fixable, 'file')}`));
       if (!isLive(s) && s.report_dir) b.push(h('button.btn', { onclick: () => attempt(() => api.post('/api/reveal', { path: s.report || s.report_dir })) }, icon('reveal'), 'Open report'));
+      const problems = s.problems ?? ORDER.filter(k => TONE[k] === 'bad').reduce((t, k) => t + ((s.counts || {})[k] || 0), 0);
+      if (s.state === 'done' && !problems) b.push(supportButton());
       return b;
     },
   });

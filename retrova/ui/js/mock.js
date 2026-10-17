@@ -556,7 +556,7 @@ const sessions = new Map();
 const sizeState = new Map();
 
 const routes = {
-  'GET /api/info': () => ({ version: '1.0.0', platform: PLATFORM, admin: ADMIN, can_elevate: !ADMIN, user: 'sam', home: HOME, app_data: jp(HOME, 'Library', 'Application Support', 'Retrova'), elevated: ADMIN, default_out: jp(HOME, 'Recovered'), start_source: null }),
+  'GET /api/info': () => ({ version: '1.0.1', platform: PLATFORM, admin: ADMIN, can_elevate: !ADMIN, user: 'sam', home: HOME, app_data: jp(HOME, 'Library', 'Application Support', 'Retrova'), elevated: ADMIN, default_out: jp(HOME, 'Recovered'), start_source: null }),
   'POST /api/elevate': () => { const u = new URL(location.href); u.searchParams.set('admin', '1'); return { url: u.toString() }; },
   'GET /api/drives': () => DRIVES,
   'GET /api/recover/sources': () => ({ sources: SOURCES, admin: ADMIN }),
@@ -629,6 +629,7 @@ const routes = {
   ] }),
   'GET /api/fs/ls': (q) => localLs(q.path),
   'POST /api/reveal': () => ({ ok: true }),
+  'POST /api/open_link': () => ({ ok: true }),
   'POST /api/native/pick': (q, b) => {
     if (Q.get('native') === '1') return { paths: [b.kind === 'file' ? jp(HOME, 'Desktop', 'MacStorage.img') : jp('/Volumes/Backup Plus', 'Recovered')] };
     throw new ApiError("Native dialogs aren't available - use the in-app browser.", 409);

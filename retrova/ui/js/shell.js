@@ -2,6 +2,7 @@
 import { h, clear, $ } from './util.js';
 import { icon } from './components/icons.js';
 import { store } from './store.js';
+import { openSupport } from './components/support.js';
 
 export const NAV = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -34,6 +35,8 @@ export function buildSidebar() {
   clear($('#sidebar-foot'), icon('shieldLock'),
     h('div', h('b', { text: 'Your drives stay safe' }),
       `Drives you recover from are only read. Anything removed goes to the ${store.words.trash}.`));
+  $('#sidebar-support')?.remove();
+  $('#sidebar-ver').before(h('button.sidebar-support', { id: 'sidebar-support', type: 'button', onclick: openSupport }, icon('heart'), 'Support Retrova'));
   clear($('#sidebar-ver'),
     h('span', { text: `Retrova ${info.version || ''} · AGPL-3.0`,
       title: 'Copyright © 2026 Jishnu Mahanta. Free software under the GNU AGPL-3.0, with no warranty. Source code: github.com/jishnumahanta/retrova' }),
