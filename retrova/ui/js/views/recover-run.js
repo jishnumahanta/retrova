@@ -8,6 +8,7 @@ import { capBar, emptyState } from '../components/controls.js';
 import { previewSheet, confirmSheet } from '../components/sheet.js';
 import { toastError, attempt } from '../components/toast.js';
 import { pickFolder } from '../components/filepicker.js';
+import { supportButton } from '../components/support.js';
 import { go } from '../router.js';
 import { render as renderAll, onDispose, openSource, showJobSource, labelFromJob, backToSources } from './recover.js';
 
@@ -58,6 +59,7 @@ export function renderCopyRun(body, S) {
       if (!isLive(st)) btns.push(h('button.btn.primary', { onclick: () => go('verify', { job: st.id }) }, icon('verify'), 'Check this copy'));
       if (out) btns.push(h('button.btn', { onclick: () => reveal(out) }, icon('reveal'), showIn()));
       if (!isLive(st) && S.session) btns.push(h('button.btn.ghost', { onclick: () => { S.showRun = false; S.copyJob = null; renderAll(); } }, 'Recover more'));
+      if (st.state === 'done' && (stat(st, 'files_done') || 0) > (stat(st, 'failed') || 0)) btns.push(supportButton());
       if (!isLive(st) && !S.session) btns.push(h('button.btn.ghost', { onclick: () => backToSources(S) }, 'Done'));
       if (isLive(st) && S.session) btns.push(h('button.btn.ghost', { onclick: () => { S.showRun = false; renderAll(); } }, 'Browse while it runs'));
       return btns;

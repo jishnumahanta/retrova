@@ -156,3 +156,35 @@ def api_elevate(q, body):
     if not _wait_for(port, token, 90):
         raise ApiError("The administrator helper didn't start in time. Please try again.", 504)
     return {"url": f"http://127.0.0.1:{port}/?t={token}", "port": port}
+
+
+# Links the UI may open in the user's browser. Only these fixed addresses are allowed, so the
+# engine can't be used to open arbitrary URLs. Retrova itself still makes no network connections.
+LINKS = {
+    "sponsor": "https://github.com/sponsors/jishnumahanta",
+    "wise": "https://wise.com/pay/business/jishnumahanta",
+    "source": "https://github.com/jishnumahanta/retrova",
+    "website": "https://getretrova.pages.dev/",
+    "support": "https://getretrova.pages.dev/#support",
+    "issues": "https://github.com/jishnumahanta/retrova/issues",
+}
+
+
+@route("POST", "/api/open_link")
+def api_open_link(q, body):
+    url = LINKS.get(str(body.get("id", "")))
+    if not url:
+        raise ApiError("Unknown link.", 400)
+    try:
+        if IS_MAC:
+            args = ["open", url]
+            if is_admin() and REAL_UID:
+                args = ["sudo", "-u", REAL_USER] + args
+            subprocess.Popen(args)
+        elif IS_WIN:
+            os.startfile(url)  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", url])
+    except OSError:
+        raise ApiError(f"Couldn't open your browser. The address is {url}", 501)
+    return {"ok": True, "url": url}

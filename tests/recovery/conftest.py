@@ -47,6 +47,8 @@ def tree():
 def need(images, key):
     if key not in images:
         pytest.skip(f"{key} image could not be built here (tool missing)")
+    if key == "exfat" and images.get("exfat_mode") != "full":
+        pytest.skip("exfat image is empty here (filling it needs FUSE and a loop device)")
     return images[key]
 
 

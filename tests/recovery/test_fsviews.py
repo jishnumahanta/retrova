@@ -80,7 +80,7 @@ def test_case_insensitive_resolve(images, key):
 def test_handles_reopen_in_a_new_view(images, tree):
     """What a Windows worker process does: open the spec again and find the file by handle."""
     for key in ("fat32", "ext4", "ntfs", "exfat", "btrfs", "xfs"):
-        if key not in images:
+        if key not in images or (key == "exfat" and images.get("exfat_mode") != "full"):
             continue
         spec = {"source": images[key], "offset": 0}
         with open_view(spec) as a:
