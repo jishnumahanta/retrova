@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.DS_Store
+.pytest_cache/
+.venv/
+venv/
+dist/
+packaging/.cache/
+packaging/build/
+tests/.appdata/
+# APFS test images are committed gzipped; the unpacked copies are made by the tests.
+tests/apfs_images/*.bin
+tests/apfs_images/*.img

@@ -1,0 +1,43 @@
+# Exact versions bundled into release builds.
+# Policy: same version as the dev venv when the package is there,
+# otherwise the newest release that has been out for a few weeks.
+pywebview==6.2.1
+proxy_tools==0.1.0
+bottle==0.13.4
+typing_extensions==4.16.0
+psutil==7.2.2
+send2trash==2.1.0
+xxhash==4.0.1
+dissect.cstruct==4.7
+dissect.util==3.24
+dissect.apfs==1.1
+dissect.fve==4.6
+dissect.ntfs==3.16
+dissect.fat==3.13
+dissect.extfs==3.15
+dissect.xfs==3.13
+dissect.btrfs==1.10
+asn1crypto==1.5.1
+pycryptodome==4.0.0
+# macOS
+pyobjc-core==12.2.2
+pyobjc-framework-Cocoa==12.2.2
+pyobjc-framework-WebKit==12.2.2
+pyobjc-framework-Quartz==12.2.2
+pyobjc-framework-Security==12.2.2
+pyobjc-framework-UniformTypeIdentifiers==12.2.2
+pyobjc-framework-Vision==12.2.2
+pyobjc-framework-CoreML==12.2.2
+# Windows
+pythonnet==3.1.0
+clr_loader==0.3.1
+cffi==2.1.1
+pycparser==3.11
+winrt-runtime==3.2.1
+winrt-Windows.Foundation==3.2.1
+winrt-Windows.Foundation.Collections==3.2.1
+winrt-Windows.Globalization==3.2.1
+winrt-Windows.Graphics.Imaging==3.2.1
+winrt-Windows.Media.Ocr==3.2.1
+winrt-Windows.Storage==3.2.1
+winrt-Windows.Storage.Streams==3.2.1

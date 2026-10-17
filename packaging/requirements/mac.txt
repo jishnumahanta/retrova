@@ -1,0 +1,8 @@
+# macOS: pywebview's Cocoa/WebKit backend + Vision OCR + PDFKit (in Quartz).
+pyobjc-core
+pyobjc-framework-Cocoa
+pyobjc-framework-WebKit
+pyobjc-framework-Quartz
+pyobjc-framework-Security
+pyobjc-framework-UniformTypeIdentifiers
+pyobjc-framework-Vision
