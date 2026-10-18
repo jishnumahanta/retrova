@@ -164,8 +164,8 @@ LINKS = {
     "sponsor": "https://github.com/sponsors/jishnumahanta",
     "wise": "https://wise.com/pay/business/jishnumahanta",
     "source": "https://github.com/jishnumahanta/retrova",
-    "website": "https://getretrova.pages.dev/",
-    "support": "https://getretrova.pages.dev/#support",
+    "website": "https://retrova.jishnumahanta.in/",
+    "support": "https://retrova.jishnumahanta.in/#support",
     "issues": "https://github.com/jishnumahanta/retrova/issues",
 }
 

@@ -172,7 +172,7 @@ The name "Retrova" and the Retrova logo are trademarks of Jishnu Mahanta. Forks 
 
 Designed and built by **Jishnu Mahanta** ([jishnumahanta.in](https://jishnumahanta.in)).
 
-* Website: [getretrova.pages.dev](https://getretrova.pages.dev)
+* Website: [retrova.jishnumahanta.in](https://retrova.jishnumahanta.in)
 * Releases: [github.com/jishnumahanta/retrova/releases](https://github.com/jishnumahanta/retrova/releases)
 * Privacy & Security: See [SECURITY.md](SECURITY.md)
 * Installation Details: See [INSTALL.md](INSTALL.md)
