@@ -8,7 +8,7 @@ import { openSheet } from './sheet.js';
 import { toast, toastError } from './toast.js';
 import { store } from '../store.js';
 
-const UPI_ID = '8472066376-4@ybl';
+const UPI_ID = 'jishnumahanta17@oksbi';
 
 export const openLink = id => api.post('/api/open_link', { id }).catch(e => toastError(e));
 

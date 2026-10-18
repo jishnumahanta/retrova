@@ -148,7 +148,7 @@ Retrova is free for everyone rescuing their own files, and it will stay that way
 
 | | How |
 | :--- | :--- |
-| 🇮🇳 **UPI (India)** | Pay `8472066376-4@ybl` from any UPI app, or scan the QR code below |
+| 🇮🇳 **UPI (India)** | Pay `jishnumahanta17@oksbi` from any UPI app, or scan the QR code below |
 | 🌍 **Wise (anywhere)** | [wise.com/pay/business/jishnumahanta](https://wise.com/pay/business/jishnumahanta): card or bank transfer in your currency |
 | 💚 **GitHub Sponsors** | [github.com/sponsors/jishnumahanta](https://github.com/sponsors/jishnumahanta) |
 
