@@ -1,7 +1,7 @@
 # Retrova — build spec (shared contract for all contributors)
 
 Retrova is a local-only desktop app for macOS (Apple Silicon + Intel) and Windows 10/11 that
-grew out of "T5 Rescue", a one-off script written to rescue a dead Samsung T5 drive. It recovers files from damaged or unmountable
+grew out of a one-off rescue script written to save the files on a dead portable SSD. It recovers files from damaged or unmountable
 drives, verifies and repairs copies, and helps people take care of their disks: space
 analyser, duplicate finder, "find text in images" (OCR), cleanup, sparse-file reclaim,
 memory/system check. Tagline: **Recover. Verify. Reclaim.**
@@ -70,7 +70,7 @@ All responses JSON unless noted. (job) = returns a job status object.
    volumes: [{mount, label, fs, size, free, device}]}`  (mac: diskutil -plist, win: PowerShell Get-Disk/Get-Partition/Get-Volume
    or WMI, linux: lsblk -J). Needs no admin.
 
-### Recovery  [core]  (generalised T5 Rescue)
+### Recovery  [core]  (generalised rescue script)
 - `GET /api/recover/sources` -> `{sources: [{source, label, size, fs, detail, recommended: bool, needs_admin: bool}]}` —
   candidates: every partition/whole disk with a recognised filesystem; flag ones the OS can't mount or that look damaged.
 - `POST /api/recover/open {source, offset?: int, volume?: str}` -> `{sid, fs, label, volumes: [str], size, source, notes: [str]}`
@@ -126,7 +126,7 @@ All responses JSON unless noted. (job) = returns a job status object.
   OCR of scanned pages; elsewhere text layer only) into sqlite FTS5 in the app-data dir; incremental (skip unchanged by size+mtime).
   `GET /api/ocr/search?q=&limit=50` -> `{results: [{path, snippet, kind}]}`. Engines: mac Vision (pyobjc), Windows.Media.Ocr (winrt),
   fallback `tesseract` CLI if on PATH.
-- Transfer (copy recovered files back, from T5 Restore): `POST /api/transfer {src, dst, items, workers, fix_perms, restore_names, check}` -> (job "transfer").
+- Transfer (copy recovered files back, from the original restore script): `POST /api/transfer {src, dst, items, workers, fix_perms, restore_names, check}` -> (job "transfer").
 
 ## UI  [ui]
 Single-page app in `retrova/ui/` (no build step, no CDN, everything local; ES modules under `js/`, styles in `css/`).
