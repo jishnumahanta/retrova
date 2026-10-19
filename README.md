@@ -117,10 +117,10 @@ Get-FileHash Retrova-1.0.2-win-x64-Setup.exe -Algorithm SHA256
 
 Compare the output against the values in [`SHA256SUMS`](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/SHA256SUMS):
 ```text
-48b4fba07e90aa4160264500968c8c0a211acb30bc070c01a9216d9b9f139e17  Retrova-1.0.2-mac-arm64.dmg
-2c2d177ea7f8dff66f4560b588e89c7aee6e8730d6210ffa1487b9098af30592  Retrova-1.0.2-mac-x64.dmg
-cb1d37939ec8efded2ab1636306a7166a13d03ca242bbdceee2dfaaebe388ed0  Retrova-1.0.2-win-x64-Setup.exe
-253b7e0dc668cbcb641e7f319e8236cb9c8e973bc9e7a3e6161b0b6c1d0df43b  Retrova-1.0.2-win-x64-portable.zip
+8655d5be8e97217e86e4265136257a9574c3728c91f0666a7659e67de7935a13  Retrova-1.0.2-mac-arm64.dmg
+33ee26dd3c437705451c74ac9aa985ef351011302fe982dbe617ca77871e1777  Retrova-1.0.2-mac-x64.dmg
+46ef83b61206edcd0e948fe489e2c24344eeefca9f316f499f3f38a8dcc471cf  Retrova-1.0.2-win-x64-Setup.exe
+33af56c759041bbd9cd8da9eceeb6888e1d1663900013b6df2d687da4627e48c  Retrova-1.0.2-win-x64-portable.zip
 ```
 
 ---
