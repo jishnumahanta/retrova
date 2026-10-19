@@ -5,9 +5,11 @@ import gc
 import json
 import os
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -105,11 +107,31 @@ def _applescript_quote(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _launch_mac(port, token):
+def _write_token_file(token: str) -> str:
+    """Hand the session token to the elevated helper through a private file instead of its command line
+    (a command line is visible to every process on the machine). The folder is created owner-only
+    (0700) and the file 0600; the helper reads it and deletes it as soon as it starts."""
+    d = tempfile.mkdtemp(prefix="retrova-")
+    try:
+        path = os.path.join(d, "token")
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="ascii") as f:
+            f.write(token)
+        return path
+    except Exception:
+        shutil.rmtree(d, ignore_errors=True)
+        raise
+
+
+def _discard_token_file(path: str):
+    shutil.rmtree(os.path.dirname(path), ignore_errors=True)
+
+
+def _launch_mac(port, token_file):
     env = (f"SUDO_UID={int(REAL_UID)} SUDO_GID={int(REAL_GID)} SUDO_USER={shlex.quote(REAL_USER)} "
            f"RETROVA_ELEVATED=1 RETROVA_APP_DATA={shlex.quote(_app_data())}")
     cmd = (f"cd {shlex.quote(PKG_ROOT)} && {env} nohup {shlex.quote(sys.executable)} -m retrova --serve-only "
-           f"--port {port} --token {shlex.quote(token)} --parent {os.getpid()} >/dev/null 2>&1 &")
+           f"--port {port} --token-file {shlex.quote(token_file)} --parent {os.getpid()} >/dev/null 2>&1 &")
     script = (f"do shell script {_applescript_quote(cmd)} with prompt "
               f"{_applescript_quote('Retrova needs administrator rights to read the drive directly. It only ever reads it.')}"
               f" with administrator privileges")
@@ -124,14 +146,14 @@ def _launch_mac(port, token):
         raise ApiError(f"macOS didn't start the administrator helper: {(r.stderr or '').strip()}", 500)
 
 
-def _launch_windows(port, token):
+def _launch_windows(port, token_file):
     import ctypes
     exe = sys.executable
     pyw = os.path.join(os.path.dirname(exe), "pythonw.exe")
     if os.path.exists(pyw):
         exe = pyw
-    params = subprocess.list2cmdline(["-m", "retrova", "--serve-only", "--port", str(port), "--token", token,
-                                      "--parent", str(os.getpid())])
+    params = subprocess.list2cmdline(["-m", "retrova", "--serve-only", "--port", str(port),
+                                      "--token-file", token_file, "--parent", str(os.getpid())])
     rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, PKG_ROOT, 0)
     if rc <= 32:
         if rc == 5:
@@ -149,12 +171,16 @@ def api_elevate(q, body):
                        "sudo python3 -m retrova).", 400)
     token = _current_token(body)
     port = _free_port()
-    if IS_MAC:
-        _launch_mac(port, token)
-    else:
-        _launch_windows(port, token)
-    if not _wait_for(port, token, 90):
-        raise ApiError("The administrator helper didn't start in time. Please try again.", 504)
+    token_file = _write_token_file(token)
+    try:
+        if IS_MAC:
+            _launch_mac(port, token_file)
+        else:
+            _launch_windows(port, token_file)
+        if not _wait_for(port, token, 90):
+            raise ApiError("The administrator helper didn't start in time. Please try again.", 504)
+    finally:
+        _discard_token_file(token_file)     # normally already deleted by the helper; never leave it behind
     return {"url": f"http://127.0.0.1:{port}/?t={token}", "port": port}
 
 

@@ -66,7 +66,7 @@ function renderIdle() {
     clear(ctx.body, h('div.panel.hero-empty',
       sectorArt(7),
       h('h2', 'Make your photos and PDFs searchable'),
-      h('p', `Retrova reads the words in your images, screenshots and scanned PDFs once, on this ${store.words.computer}, and keeps a private index. Nothing is uploaded anywhere.`),
+      h('p', `Retrova reads the words in your images, screenshots and the text in PDFs once, on this ${store.words.computer}, and keeps a private index. Nothing is uploaded anywhere.`),
       h('div.row.wrap', ['Pictures', 'Documents', 'Desktop', 'Downloads'].map(n => h('button.btn', { onclick: () => startIndex([joinPath(home, n)]) }, icon('folder'), n)),
         h('button.btn.primary', { onclick: () => indexFolder() }, icon('plus'), 'Choose a folder…'))));
     return;

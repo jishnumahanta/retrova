@@ -26,7 +26,7 @@
 <p align="center">
   <img src="assets/rescue.jpg" width="100%" alt="Retrova Rescue UI" />
   <br>
-  <em>Rescue Dashboard: Drive health monitor, APFS snapshot explorer, recovery stats, and byte-for-byte verification.</em>
+  <em>Rescue Dashboard: Drive health monitor, APFS-aware browsing, recovery stats, and byte-for-byte verification.</em>
 </p>
 
 <p align="center">
@@ -63,10 +63,10 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 
 ### 🛟 Rescue
 * **Unmountable Drive Recovery**: Direct block-level parser for damaged or unmountable partitions:
-  * **APFS** (with snapshot browsing, compressed forks `lzvn`/`zlib`, and corrupted catalog tree tolerance)
+  * **APFS** (reads the newest usable checkpoint, compressed files and forks `zlib`/`lzvn`/`lzfse`, and tolerates a corrupted catalog tree; it does not browse APFS snapshots)
   * **NTFS**, **FAT12/16/32**, **exFAT**
   * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
-* **Deep File Carving**: Extracts **47 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
+* **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
 * **Sector-Safe Disk Imaging**: Creates raw bit-for-bit `.img` disk images with bad-sector skipping and sparse zero-block detection.
 
 ### 🔍 Verify & Repair
@@ -77,7 +77,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 * **Sparse File Reclaim (Docker / Colima / VMs)**: Fixes the file-bloat issue where virtual disks expand to their maximum virtual limit upon recovery. Shrinks files back to their physical allocated size using native sparse filesystem holes.
 * **APFS Duplicate Cloning**: Byte-exact duplicate finder. On macOS, duplicates can be turned into **APFS Clones** (Copy-on-Write) instantly freeing disk space while keeping both files visible in Finder.
 * **Smart Dev Cleanup**: Identifies regenerable development caches (`node_modules`, `.pnpm-store`, `.venv`, `.next`, `DerivedData`) with exact commands to rebuild them.
-* **Local OCR Search**: Apple Vision (macOS) and WinRT OCR (Windows) local text indexing into an offline SQLite FTS5 database to search screenshots, photos, and scanned PDFs by keyword.
+* **Local OCR Search**: Apple Vision (macOS) and WinRT OCR (Windows) local text indexing into an offline SQLite FTS5 database to search screenshots and photos by keyword. PDFs are searched by their text layer only (macOS PDFKit, or `pdftotext` on Windows/Linux); scanned PDF pages are not OCR'd.
 
 ---
 
