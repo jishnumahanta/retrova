@@ -85,7 +85,12 @@ All responses JSON unless noted. (job) = returns a job status object.
 - `POST /api/recover/regen {sid, paths}` -> (job kind "regen")  result: `{found: [{path, what, regen, confidence: safe|review}]}`
 - `POST /api/recover/copy {sid, paths, excluded, patterns, out, reserve_gb, workers, skipped_info}` -> (job "copy")
   status extra like legacy CopyJob (copied, skipped, failed, renamed, current[], errors[], free, out_root).
-- `POST /api/recover/image {sid | source, out, reserve_gb}` -> (job "image") full sector image, sparse, resumable.
+- `POST /api/recover/image {sid | source, out, reserve_gb, retries?: 1, reverse?: false}` -> (job "image") full sector image, sparse, resumable.
+  Passes: copy (skip ahead on errors) -> trim -> scrape -> `retries` retry passes (`reverse`: scrape/retry from the end).
+  Progress is a ddrescue-compatible mapfile `<out>.map`; also `<out>.unreadable.txt` (generated from it) and, only for a
+  complete image with nothing unreadable, `<out>.sha256`. Status extra: `phase_id` (copy|trim|scrape|retry|done), `pass`,
+  `rescued`, `bad_bytes`, `error_areas`, `map_path`, `bad_log`, `sha256`, `stop_reason`; stats add `speed`, `eta`.
+  result(q: offset, limit) -> `{areas: [{offset, length, status}], total}` (status `*` `/` `-`).
 - `POST /api/recover/verify {sid, from_job?, paths, excluded, patterns, out, mode: quick|sample|full, workers, resume, show_hidden}`
   -> (job "verify")  result(q: status, q, limit) -> `{items, more, total}`; `POST /api/recover/repair {job, workers}` -> (job "verify").
   `GET /api/recover/verify_csv?id=&status=&q=&t=` -> CSV download. (Port legacy VerifyJob.)
