@@ -159,7 +159,8 @@ def api_elevate(q, body):
 
 
 # Links the UI may open in the user's browser. Only these fixed addresses are allowed, so the
-# engine can't be used to open arbitrary URLs. Retrova itself still makes no network connections.
+# engine can't be used to open arbitrary URLs. The only request Retrova itself makes is the update
+# check below, and only when the user clicks "Check for updates".
 LINKS = {
     "sponsor": "https://github.com/sponsors/jishnumahanta",
     "wise": "https://wise.com/pay/business/jishnumahanta",
@@ -170,11 +171,7 @@ LINKS = {
 }
 
 
-@route("POST", "/api/open_link")
-def api_open_link(q, body):
-    url = LINKS.get(str(body.get("id", "")))
-    if not url:
-        raise ApiError("Unknown link.", 400)
+def _open_in_browser(url: str):
     try:
         if IS_MAC:
             args = ["open", url]
@@ -187,4 +184,100 @@ def api_open_link(q, body):
             subprocess.Popen(["xdg-open", url])
     except OSError:
         raise ApiError(f"Couldn't open your browser. The address is {url}", 501)
+
+
+@route("POST", "/api/open_link")
+def api_open_link(q, body):
+    url = LINKS.get(str(body.get("id", "")))
+    if not url:
+        raise ApiError("Unknown link.", 400)
+    _open_in_browser(url)
+    return {"ok": True, "url": url}
+
+
+# ---------------------------------------------------------------- update check (only when the user asks)
+# The one network request Retrova can make: GET the latest release from GitHub, and only when
+# the user clicks "Check for updates". Nothing is sent but a plain HTTPS request; no ids, no stats.
+RELEASES_API = "https://api.github.com/repos/jishnumahanta/retrova/releases/latest"
+RELEASES_PAGE = "https://github.com/jishnumahanta/retrova/releases"
+DOWNLOAD_PREFIX = "https://github.com/jishnumahanta/retrova/releases/"
+
+
+def _version_tuple(v: str) -> tuple:
+    out = []
+    for part in str(v).strip().lstrip("vV").split("."):
+        num = "".join(ch for ch in part if ch.isdigit())
+        out.append(int(num) if num else 0)
+    return tuple(out + [0] * (3 - len(out)))
+
+
+def _fetch_json(url: str, timeout: int = 10) -> dict:
+    """GET a JSON document. System curl first (it uses the OS certificate store on macOS and
+    Windows, which the bundled Python's OpenSSL can't see), then urllib as a fallback."""
+    headers = {"User-Agent": f"Retrova/{__version__}", "Accept": "application/vnd.github+json"}
+    curl = "curl.exe" if IS_WIN else "/usr/bin/curl" if IS_MAC else "curl"
+    try:
+        cmd = [curl, "-fsSL", "--max-time", str(timeout)]
+        for k, v in headers.items():
+            cmd += ["-H", f"{k}: {v}"]
+        r = subprocess.run(cmd + [url], capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout + 5,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode == 0 and r.stdout:
+            return json.loads(r.stdout.decode("utf-8", "replace"))
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as res:  # noqa: S310 (fixed https URL)
+        return json.loads(res.read().decode("utf-8", "replace"))
+
+
+def _pick_asset(assets: list) -> dict | None:
+    """The download that fits this computer: Apple silicon or Intel .dmg, Windows Setup or portable."""
+    import platform as _platform
+    names = {a.get("name", ""): a for a in assets}
+    if IS_MAC:
+        arch = "arm64" if _platform.machine() in ("arm64", "aarch64") else "x64"
+        want = [f"-mac-{arch}.dmg"]
+    elif IS_WIN:
+        installed = os.path.exists(os.path.join(os.path.dirname(sys.executable), "Uninstall Retrova.exe"))
+        want = ["-win-x64-Setup.exe", "-win-x64-portable.zip"] if installed else ["-win-x64-portable.zip",
+                                                                                 "-win-x64-Setup.exe"]
+    else:
+        return None
+    for suffix in want:
+        for n, a in names.items():
+            if n.endswith(suffix):
+                return {"name": n, "url": a.get("browser_download_url"), "size": a.get("size")}
+    return None
+
+
+@route("GET", "/api/update/check")
+def api_update_check(q, body):
+    try:
+        rel = _fetch_json(RELEASES_API)
+    except Exception as ex:
+        raise ApiError("Couldn't reach GitHub to check for updates. Are you online? "
+                       f"({type(ex).__name__})", 503)
+    latest = str(rel.get("tag_name") or "").lstrip("vV")
+    if not latest:
+        raise ApiError("GitHub didn't say which version is the latest. Try again later.", 502)
+    notes = str(rel.get("body") or "").strip()
+    return {
+        "current": __version__,
+        "latest": latest,
+        "newer": _version_tuple(latest) > _version_tuple(__version__),
+        "page": rel.get("html_url") or RELEASES_PAGE,
+        "published": rel.get("published_at"),
+        "notes": notes[:4000],
+        "asset": _pick_asset(rel.get("assets") or []),
+    }
+
+
+@route("POST", "/api/update/open")
+def api_update_open(q, body):
+    """Open a release page or download in the browser. Only Retrova's own GitHub releases."""
+    url = str(body.get("url") or RELEASES_PAGE)
+    if not (url == RELEASES_PAGE or url.startswith(DOWNLOAD_PREFIX)) or any(c in url for c in '\r\n "<>'):
+        raise ApiError("That isn't a Retrova release address.", 400)
+    _open_in_browser(url)
     return {"ok": True, "url": url}

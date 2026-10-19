@@ -556,6 +556,12 @@ const sessions = new Map();
 const sizeState = new Map();
 
 const routes = {
+  'GET /api/update/check': () => (Q.get('update') === 'none'
+    ? { current: '1.0.2', latest: '1.0.2', newer: false, page: 'https://github.com/jishnumahanta/retrova/releases', notes: '', asset: null }
+    : { current: '1.0.2', latest: '1.0.3', newer: true, page: 'https://github.com/jishnumahanta/retrova/releases/tag/v1.0.3',
+        notes: '### Retrova 1.0.3\n\n- **Faster** deep scans on big drives\n- Fixed a rare crash when a USB drive is unplugged mid-copy',
+        asset: { name: PLATFORM === 'windows' ? 'Retrova-1.0.3-win-x64-Setup.exe' : 'Retrova-1.0.3-mac-arm64.dmg', url: 'https://github.com/jishnumahanta/retrova/releases/download/v1.0.3/x', size: 18000000 } }),
+  'POST /api/update/open': () => ({ ok: true }),
   'GET /api/info': () => ({ version: '1.0.1', platform: PLATFORM, admin: ADMIN, can_elevate: !ADMIN, user: 'sam', home: HOME, app_data: jp(HOME, 'Library', 'Application Support', 'Retrova'), elevated: ADMIN, default_out: jp(HOME, 'Recovered'), start_source: null }),
   'POST /api/elevate': () => { const u = new URL(location.href); u.searchParams.set('admin', '1'); return { url: u.toString() }; },
   'GET /api/drives': () => DRIVES,

@@ -55,7 +55,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 1. **Strictly Read-Only**: Source drives are opened exclusively with read-only system handles. No recovery process ever writes, formats, partitions, or touches blocks on the damaged disk.
 2. **Non-Destructive Deletions**: Deletions never execute permanent `rm`. All items cleaned or de-duplicated are moved to your operating system's Trash or Recycle Bin.
 3. **Collision Safe**: Staged files are written as `.part` and renamed once verified. Collisions are preserved as `filename.retrova-N`.
-4. **Zero Telemetry / Air-Gapped**: Retrova binds exclusively to `127.0.0.1` using a cryptographic session token. It never connects to the internet or sends analytics.
+4. **Zero Telemetry / Air-Gapped**: Retrova binds exclusively to `127.0.0.1` using a cryptographic session token. It never connects to the internet by itself or sends analytics. The only exception is **Check for updates**, which asks GitHub for the latest version when you click it.
 
 ---
 

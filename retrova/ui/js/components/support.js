@@ -1,5 +1,5 @@
 // "Support Retrova": ways to chip in (UPI, Wise, GitHub Sponsors) plus the licence notice.
-// Retrova makes no network connections; links open in the user's own browser via the engine,
+// Retrova makes no network connections (except "Check for updates", when clicked); links open in the user's own browser via the engine,
 // which only accepts the fixed link ids listed in recovery/api_platform.py.
 import { h } from '../util.js';
 import { api } from '../api.js';
@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 import { openSheet } from './sheet.js';
 import { toast, toastError } from './toast.js';
 import { store } from '../store.js';
+import { updateButton } from './update.js';
 
 const UPI_ID = 'jishnumahanta17@oksbi';
 
@@ -49,7 +50,8 @@ export function openSupport() {
       h('button.btn.ghost.sm', { onclick: () => openLink('issues') }, icon('info'), 'Report a problem')),
     h('p.support-legal',
       `Retrova ${version}. Copyright © 2026 Jishnu Mahanta. Free software under the GNU AGPL-3.0, with no warranty. `,
-      h('a', { href: '#', onclick: e => { e.preventDefault(); openLink('source'); } }, 'Source code'), '.'));
+      h('a', { href: '#', onclick: e => { e.preventDefault(); openLink('source'); } }, 'Source code'), '. ',
+      updateButton('link-btn')));
   openSheet({
     title: 'Support Retrova', subtitle: 'Paying unlocks nothing. Every feature is already free.', icon: 'heart',
     body, size: 'wide', closeButton: true, actions: [{ label: 'Close', autofocus: true }],
