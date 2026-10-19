@@ -20,7 +20,7 @@ export function recoverState() {
       source: null,            // the chosen entry from /api/recover/sources (or {source, label, image: true})
       session: null,           // /api/recover/open result
       opening: false, openError: null,
-      cwd: '/', entries: [], showHidden: false, history: [],
+      cwd: '/', entries: [], showHidden: false, showDeleted: false, deletedNotes: [], history: [],
       selection: new Map(), excluded: new Set(),
       regen: { job: null, state: 'idle', found: [], info: new Map() },
       sizes: new Map(),

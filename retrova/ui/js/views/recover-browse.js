@@ -50,17 +50,22 @@ export function renderFiles(body, S) {
   const upBtn = h('button.btn.icon.sm.ghost', { title: 'Up one folder (Backspace)', 'aria-label': 'Up one folder', onclick: () => goUp() }, icon('arrowUp'));
   const backBtn = h('button.btn.icon.sm.ghost', { title: 'Back', 'aria-label': 'Back', onclick: () => goBack() }, icon('chevronLeft'));
   const hiddenT = toggle({ label: 'Hidden files', checked: S.showHidden, onChange: v => { S.showHidden = v; refreshRows(); } });
+  const canDeleted = !!S.session.can_list_deleted;
+  const deletedT = canDeleted ? toggle({ label: 'Show deleted files', checked: S.showDeleted, title: 'Also list files that were deleted but may still be on the drive, with their names and folders',
+    onChange: v => { S.showDeleted = v; load(S.cwd, { push: false }); } }) : null;
   const measureBtn = h('button.btn.sm', { title: 'Work out the size of every folder here', onclick: () => measureHere() }, icon('space'), 'Measure folders');
   const selAllBtn = h('button.btn.sm', { onclick: () => selectAllHere() }, icon('check'), 'Select all');
   const headCheck = checkbox({ ariaLabel: 'Select everything in this folder', onChange: on => { selectAllHere(on); } });
   const status = h('div.browser-status');
+  const delHint = h('div.deleted-hint');
   const table = vlist({ rowHeight: 36, render: i => rowEl(i) });
   table.el.setAttribute('role', 'grid');
   table.el.setAttribute('aria-label', 'Files on the drive');
   table.el.tabIndex = 0;
 
   const browser = h('section.panel.browser',
-    h('div.browser-bar', backBtn, upBtn, crumbs, h('span.grow'), hiddenT, measureBtn, selAllBtn),
+    h('div.browser-bar', backBtn, upBtn, crumbs, h('span.grow'), deletedT, hiddenT, measureBtn, selAllBtn),
+    delHint,
     h('div.vtable', h('div.thead.rc-cols', headCheck, h('span', 'Name'), h('span.r', 'Size'), h('span.r', 'Modified'), h('span')), table.el),
     status);
 
@@ -92,12 +97,19 @@ export function renderFiles(body, S) {
     cb,
     h('span.name', icon(kindIcon(kind), { cls: 'kind-ic' }), nameText,
       r.error ? h('span.badge.bad', { title: r.error }, 'Unreadable') : null,
+      deletedBadge(r),
       regenBadge(r.path)),
     h('span.r.cell-num', sizeCell(r)),
     h('span.r.cell-num', { text: date(r.mtime) }),
     h('span.row-actions', r.kind === 'file' && previewable(r.name) ? h('button.btn.icon.sm.ghost', { title: 'Preview', 'aria-label': `Preview ${r.name}`, onclick: () => preview(r) }, icon('eye')) : null));
     row.querySelector('.kind-ic').style.color = KIND_TONE[kind] || '';
     return row;
+  }
+  const RECOVER = { good: ['ok', 'Good'], overwritten: ['bad', 'Possibly overwritten'], incomplete: ['warn', 'May be incomplete'] };
+  function deletedBadge(r) {
+    if (!r.deleted) return null;
+    const [tone, text] = RECOVER[r.recover] || ['', 'Deleted'];
+    return h('span.badge', { class: tone, title: r.recover_note || 'Deleted, but its name and folder are still on the drive.' }, r.kind === 'file' ? text : 'Deleted');
   }
   function regenBadge(path) {
     const f = S.regen.info.get(path);
@@ -123,8 +135,12 @@ export function renderFiles(body, S) {
     headCheck.checked = visible.length > 0 && ticked === visible.length;
     headCheck.indeterminate = ticked > 0 && ticked < visible.length;
     const dirs = visible.filter(r => r.kind === 'dir').length;
+    const inDeleted = under(S.cwd || '/', '/Deleted files');
+    clear(delHint, inDeleted ? [icon('info', { size: 14 }), h('span', 'These files were deleted. Their names and folders come from what the drive still remembers, and nothing here is written back to it. Files marked “Possibly overwritten” or “May be incomplete” can open wrongly or not at all, so check the copies.')] : null);
+    delHint.hidden = !inDeleted;
     clear(status, visible.length ? `${plural(dirs, 'folder')}, ${plural(visible.length - dirs, 'file')}` : '',
-      S.entries.length !== visible.length ? h('span.faint', ` (${num(S.entries.length - visible.length)} hidden)`) : null);
+      S.entries.length !== visible.length ? h('span.faint', ` (${num(S.entries.length - visible.length)} hidden)`) : null,
+      ...S.deletedNotes.map(n => h('span.faint', ` ${n}`)));
     table.el.querySelector('.vl-spacer > .empty')?.remove();
     if (!visible.length && !ui.loading) table.el.querySelector('.vl-spacer').append(h('div.empty.small', h('p', { text: S.entries.length ? 'Only hidden files here. Turn on Hidden files to see them.' : 'This folder is empty.' })));
   }
@@ -142,11 +158,13 @@ export function renderFiles(body, S) {
 
   async function load(path, { push = true } = {}) {
     ui.loading = true;
+    if (S.showDeleted) clear(status, spinner(13), ' Looking for deleted files. A big drive can take a few minutes the first time.');
     try {
-      const r = await api.get('/api/recover/ls', { sid: S.session.sid, path });
+      const r = await api.get('/api/recover/ls', { sid: S.session.sid, path, ...(S.showDeleted && canDeleted ? { deleted: 1 } : {}) });
       if (push && S.cwd !== r.path) S.history.push(S.cwd);
       S.cwd = r.path || path;
       S.entries = r.entries || [];
+      S.deletedNotes = r.deleted_notes || [];
       focus = -1;
       table.el.scrollTop = 0;
     } catch (e) {
