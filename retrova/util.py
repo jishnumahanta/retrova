@@ -162,9 +162,12 @@ def reveal(path: str):
 def run(cmd, timeout=30) -> str:
     """Run a helper command and return stdout ('' on any failure)."""
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=timeout,
                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return r.stdout
+    except subprocess.TimeoutExpired:
+        print(f"[retrova] {cmd[0]} timed out after {timeout}s", file=sys.stderr, flush=True)
+        return ""
     except Exception:
         return ""
 

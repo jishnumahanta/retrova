@@ -15,6 +15,7 @@ import os
 import plistlib
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -25,10 +26,17 @@ _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def _run(cmd, timeout=30) -> bytes:
+    # stdin=DEVNULL: started from Explorer, Retrova.exe has no console, and PowerShell waits
+    # forever on an inherited, never-closed stdin pipe (every drive list then hangs until timeout).
     try:
-        r = subprocess.run(cmd, capture_output=True, timeout=timeout, creationflags=_CREATE_NO_WINDOW)
+        r = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout,
+                           creationflags=_CREATE_NO_WINDOW)
         return r.stdout or b""
-    except Exception:
+    except subprocess.TimeoutExpired:
+        print(f"[retrova] {cmd[0]} timed out after {timeout}s", file=sys.stderr, flush=True)
+        return b""
+    except Exception as ex:
+        print(f"[retrova] {cmd[0]} failed: {type(ex).__name__}: {ex}", file=sys.stderr, flush=True)
         return b""
 
 
