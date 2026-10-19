@@ -3,6 +3,7 @@ import { h, clear, $ } from './util.js';
 import { icon } from './components/icons.js';
 import { store } from './store.js';
 import { openSupport } from './components/support.js';
+import { updateButton } from './components/update.js';
 
 export const NAV = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -40,7 +41,8 @@ export function buildSidebar() {
   clear($('#sidebar-ver'),
     h('span', { text: `Retrova ${info.version || ''} · AGPL-3.0`,
       title: 'Copyright © 2026 Jishnu Mahanta. Free software under the GNU AGPL-3.0, with no warranty. Source code: github.com/jishnumahanta/retrova' }),
-    info.admin ? h('span.badge.ok', { text: 'Disk access on', title: 'Running with administrator rights' }) : null);
+    info.admin ? h('span.badge.ok', { text: 'Disk access on', title: 'Running with administrator rights' }) : null,
+    updateButton('sidebar-update'));
 }
 
 export function setActiveNav(id) {

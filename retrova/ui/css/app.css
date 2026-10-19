@@ -747,4 +747,9 @@ input[type=search]::-webkit-search-decoration { -webkit-appearance: none; }
 .sidebar-support { display: flex; align-items: center; gap: 6px; margin: 6px 10px 0; padding: 6px 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-sm); cursor: pointer; text-align: left; }
 .sidebar-support:hover { background: var(--accent-softer); color: var(--text); }
 .sidebar-support svg { width: 14px; height: 14px; color: #E5737F; }
+.sidebar-update, .link-btn { border: 0; padding: 0; background: none; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.sidebar-update { flex-basis: 100%; text-align: left; color: var(--text-3); }
+.sidebar-update:hover, .link-btn:hover { color: var(--text); }
+.sidebar-update:disabled, .link-btn:disabled { cursor: progress; text-decoration: none; }
+.update-notes { white-space: pre-wrap; max-height: 240px; overflow: auto; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); font-size: var(--fs-md); line-height: 1.5; }
 @media (max-width: 720px) { .support-grid { grid-template-columns: 1fr; } }

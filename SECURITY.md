@@ -6,8 +6,9 @@ Retrova was engineered from the ground up for strict privacy, data integrity, an
 
 ## Security Guarantees
 
-### 1. 100% Offline / Zero Telemetry
-* **No Network Calls**: Retrova contains zero analytics, tracking scripts, crash-reporting daemons, or telemetry libraries.
+### 1. Offline by default / Zero Telemetry
+* **No Background Network Calls**: Retrova contains zero analytics, tracking scripts, crash-reporting daemons, or telemetry libraries, and never goes online by itself.
+* **Update check only when you click**: "Check for updates" (sidebar or Support panel) makes one HTTPS request to GitHub's public latest-release API (`api.github.com/repos/jishnumahanta/retrova/releases/latest`). It sends no identifiers or usage data. Downloads open in your own browser, and only Retrova's own GitHub release addresses are allowed.
 * **Local HTTP Loopback**: The backend API listens exclusively on `127.0.0.1` (localhost).
 * **Cryptographic Token Verification**: Every API interaction requires an ephemeral session token generated when the app starts. Cross-origin requests and non-local Host headers are rejected with HTTP 401/403.
 

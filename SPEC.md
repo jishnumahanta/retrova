@@ -14,7 +14,8 @@ memory/system check. Tagline: **Recover. Verify. Reclaim.**
 4. System locations (`/System`, `/usr`, `/bin`, `/sbin`, `/private/var/db`, `C:\Windows`,
    `C:\Program Files*`, `/Library` except caches listed explicitly) are never offered for removal.
 5. Server listens on 127.0.0.1 only; every API call needs the session token. No network calls
-   to the internet anywhere in the app (no telemetry, no update checks).
+   to the internet anywhere in the app (no telemetry, no automatic update checks). The single
+   exception is GET /api/update/check, run only when the user clicks "Check for updates".
 6. Pure-Python where possible. Allowed third-party deps: dissect.* (apfs, ntfs, fat, extfs, xfs,
    btrfs, cstruct, util), send2trash, psutil, xxhash (optional, fall back to hashlib.blake2b),
    pywebview (+ pyobjc on mac, pythonnet on win), pyobjc-framework-Vision/Quartz (mac OCR),
