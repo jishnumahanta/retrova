@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import threading
 
+from .fastxts import install as fast_xts
 from .source import ReadOnlySource
 
 LOCKED = ("bitlocker", "luks")          # partition types that wrap another file system
@@ -204,6 +205,7 @@ def _bde(raw):
 
 
 def _bitlocker_stream(raw, key):
+    fast_xts()
     b = _bde(raw)
     if key is not None:
         fvek = key.get("fvek")
@@ -272,6 +274,7 @@ def _luks(raw):
 
 
 def _luks_stream(raw, key):
+    fast_xts()
     luks = _luks(raw)
     if key is None:
         raise NeedsKey("luks", str(luks.label or ""), "Enter the passphrase for this encrypted Linux drive.")
@@ -326,6 +329,7 @@ def _apfs_password_records(volume) -> list:
 
 def _apfs_set_cipher(volume, vek: bytes) -> None:
     from dissect.fve.crypto import create_cipher
+    fast_xts()
     volume._cipher = create_cipher("aes-xts-128", vek)
 
 
