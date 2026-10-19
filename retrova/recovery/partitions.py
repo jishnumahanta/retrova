@@ -10,7 +10,7 @@ import zlib
 from .common import human
 from .source import ReadOnlySource, device_size
 
-SUPPORTED = ("apfs", "ntfs", "fat12", "fat16", "fat32", "exfat", "ext2", "ext3", "ext4", "xfs", "btrfs")
+SUPPORTED = ("apfs", "ntfs", "fat12", "fat16", "fat32", "exfat", "ext2", "ext3", "ext4", "xfs", "btrfs", "hfs+")
 FS_NAMES = {
     "apfs": "APFS", "ntfs": "NTFS", "fat12": "FAT12", "fat16": "FAT16", "fat32": "FAT32", "exfat": "exFAT",
     "ext2": "ext2", "ext3": "ext3", "ext4": "ext4", "xfs": "XFS", "btrfs": "Btrfs", "hfs+": "Mac OS Extended (HFS+)",
@@ -18,7 +18,6 @@ FS_NAMES = {
     "lvm": "Linux LVM", "iso9660": "CD/DVD image (ISO 9660)", "corestorage": "Core Storage",
 }
 UNSUPPORTED_WHY = {
-    "hfs+": "Mac OS Extended (HFS+) isn't supported yet - use Deep scan to find photos, videos and documents on it.",
     "bitlocker": "This partition is encrypted with BitLocker. Unlock it in Windows first, or use Deep scan "
                  "(which can only find files if the drive was never encrypted).",
     "luks": "This partition is encrypted (LUKS). Retrova can't read encrypted Linux partitions.",
@@ -58,6 +57,8 @@ MBR_TYPES = {
     0xEE: "GPT protective", 0xEF: "EFI system", 0x27: "Windows recovery", 0x17: "Hidden NTFS",
     0x1B: "Hidden FAT32", 0x1C: "Hidden FAT32 (LBA)", 0x42: "Windows dynamic disk",
 }
+APM_TYPES = {"Apple_HFS": "Apple HFS+", "Apple_HFSX": "Apple HFS+", "Apple_APFS": "Apple APFS",
+             "Apple_Boot": "Apple Boot", "Apple_UNIX_SVR2": "Apple UFS", "Apple_Scratch": "Apple scratch"}
 EXTENDED = (0x05, 0x0F, 0x85)
 
 
@@ -114,8 +115,8 @@ def detect_fs(src: ReadOnlySource, offset: int = 0, quick: bool = False) -> dict
         blocks = _u32(sb, 4) | ((_u32(sb, 0x150) << 32) if incompat & 0x80 else 0)
         r = {"fs": fs, "label": sb[0x78:0x88].split(b"\0")[0].decode("utf-8", "replace"), "detail": "",
              "size": blocks * bsize}
-    elif len(head) >= 1026 and head[1024:1026] in (b"H+", b"HX"):
-        r = {"fs": "hfs+", "label": "", "detail": ""}
+    elif _hfs_plus(src, offset, head):
+        r = _hfs_plus(src, offset, head)
     elif head[512:520] == b"LABELONE":
         r = {"fs": "lvm", "label": "", "detail": ""}
     elif head[4086:4096] in (b"SWAPSPACE2", b"SWAP-SPACE"):
@@ -137,6 +138,24 @@ def detect_fs(src: ReadOnlySource, offset: int = 0, quick: bool = False) -> dict
     if not quick:
         _fill_label(src, offset, r)
     return r
+
+
+def _hfs_plus(src: ReadOnlySource, offset: int, head: bytes) -> dict | None:
+    """An HFS+ / HFSX volume header at 1024, or an old HFS wrapper that holds one (as on 1998-2003 Macs).
+    HFS stores its numbers big-endian."""
+    base = 0
+    if head[1024:1026] == b"BD" and head[1024 + 124:1024 + 126] == b"H+":
+        first_block, block_size, embed_start = struct.unpack_from(">H", head, 1024 + 28)[0], \
+            struct.unpack_from(">I", head, 1024 + 20)[0], struct.unpack_from(">H", head, 1024 + 126)[0]
+        base = first_block * 512 + embed_start * block_size
+    vh = src.pread(offset + base + 1024, 48) if base else head[1024:1024 + 48]
+    if len(vh) < 48 or vh[:2] not in (b"H+", b"HX"):
+        return None
+    version, bsize, blocks = struct.unpack_from(">H", vh, 2)[0], *struct.unpack_from(">II", vh, 40)
+    if version not in (4, 5) or bsize < 512 or bsize & (bsize - 1):
+        return None
+    return {"fs": "hfs+", "label": "", "size": bsize * blocks,
+            "detail": "case-sensitive (HFSX)" if vh[:2] == b"HX" else ""}
 
 
 def _detect_fat(head: bytes) -> dict | None:
@@ -199,6 +218,13 @@ def _fill_label(src, offset, r):
                 enc = [v.name for v in vols if _safe_bool(lambda: v.is_encrypted)]
                 if enc:
                     r["encrypted"] = enc
+            finally:
+                sub.close()
+        elif fs == "hfs+":
+            from .hfsplus import HfsPlus
+            sub = ReadOnlySource(src.path, src.base + offset)
+            try:
+                r["label"] = HfsPlus(sub).label
             finally:
                 sub.close()
         elif fs.startswith("fat"):
@@ -268,6 +294,31 @@ def _gpt(src: ReadOnlySource, disk_size: int):
     return None
 
 
+def _apm(src: ReadOnlySource, s0: bytes):
+    """Apple Partition Map, the table on pre-Intel Macs and old external drives (numbers are big-endian)."""
+    if s0[:2] != b"ER":
+        return None
+    bs = struct.unpack_from(">H", s0, 2)[0]
+    if bs not in (512, 1024, 2048, 4096):
+        bs = 512
+    first = src.pread(bs, bs)
+    if first[:2] != b"PM":
+        return None
+    parts = []
+    for i in range(min(struct.unpack_from(">I", first, 4)[0], 128)):
+        e = first if i == 0 else src.pread(bs * (1 + i), bs)
+        if e[:2] != b"PM":
+            break
+        start, count = struct.unpack_from(">II", e, 8)
+        ptype = e[48:80].split(b"\0")[0].decode("ascii", "replace")
+        if not count or ptype in ("Apple_partition_map", "Apple_Free"):
+            continue
+        parts.append({"index": i + 1, "offset": start * bs, "size": count * bs, "type": ptype,
+                      "type_name": "Apple driver" if ptype.startswith("Apple_Driver") else APM_TYPES.get(ptype, ptype),
+                      "name": e[16:48].split(b"\0")[0].decode("ascii", "replace")})
+    return {"scheme": "apm", "sector_size": bs, "parts": parts, "notes": []}
+
+
 def _mbr(src: ReadOnlySource, s0: bytes, disk_size: int):
     if s0[510:512] != b"\x55\xaa":
         return None
@@ -326,7 +377,7 @@ def scan(path: str, size: int | None = None) -> dict:
     try:
         disk_size = size or device_size(path) or 0
         s0 = src.pread(0, 512)
-        res = _gpt(src, disk_size)
+        res = _gpt(src, disk_size) or _apm(src, s0)
         if res is None:
             fs0 = detect_fs(src, 0)
             if fs0 is not None:
@@ -365,7 +416,7 @@ def scan(path: str, size: int | None = None) -> dict:
 
 def _unknown_why(p) -> str:
     tn = p.get("type_name", "")
-    if tn in ("Microsoft reserved", "BIOS boot", "Apple Boot", "Windows LDM metadata"):
+    if tn in ("Microsoft reserved", "BIOS boot", "Apple Boot", "Apple driver", "Windows LDM metadata"):
         return "A small system area with no files in it."
     if tn == "Apple APFS":
         return ("This should be an APFS partition but no APFS container was found at its start - "
