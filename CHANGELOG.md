@@ -11,7 +11,7 @@
 - **Fixed: AVIF photos were saved as .heic** when they also listed the generic HEIF brand, which most AVIF encoders do.
 - Known limits: EML is only recovered for multipart messages (the closing boundary is the only reliable end marker), RTF files that contain raw 8-bit bytes instead of escapes are skipped, and Panasonic RW2, MBOX and Affinity files are not recovered because their end cannot be found reliably.
 - **New: open encrypted drives with your key.** BitLocker (password or recovery key), LUKS 1/2 (passphrase) and FileVault / encrypted APFS volumes (password or recovery key). Locked drives are marked "Locked"; Retrova asks for the key, shows a plain error if it's wrong so you can retry, then browses the files inside as usual. Copy, Verify, Create image and Deep scan work on the unlocked contents. Keys stay in memory only (never written, logged or sent back to the screen) and are forgotten when you leave the drive. Drives locked to a Mac's own security chip can't be unlocked elsewhere, and Retrova says so.
-  Limits: Deep scan and Create image on an unlocked APFS (FileVault) volume still read the drive's encrypted bytes (only BitLocker and LUKS are decrypted for those); decryption is pure Python and slow (a few MB/s at best), so large drives take a long time; BitLocker startup-key (.bek) files and TPM-only drives aren't supported.
+  Limits: Deep scan and Create image on an unlocked APFS (FileVault) volume still read the drive's encrypted bytes (only BitLocker and LUKS are decrypted for those); decryption runs at roughly 100 MB/s, so a 1 TB drive takes a few hours; BitLocker startup-key (.bek) files and TPM-only drives aren't supported.
 
 ## Unreleased
 
