@@ -36,13 +36,16 @@ class ReadOnlySource:
     """Read-only, alignment-safe, thread-safe reader for a raw device or image.
 
     `base` shifts every offset (a partition inside a whole disk); `length` (optional)
-    makes reads past the end of that region come back short, like EOF."""
+    makes reads past the end of that region come back short, like EOF. `align` is the unit
+    reads are rounded out to (default ALIGN); imaging a failing drive passes the device's
+    logical sector size so one bad sector doesn't take its neighbours with it."""
 
-    def __init__(self, path: str, base: int = 0, length: int | None = None):
+    def __init__(self, path: str, base: int = 0, length: int | None = None, align: int = ALIGN):
         p, off = split_src(path)
         self.path = p
         self.base = int(base) + off
         self.length = None if length is None else int(length)
+        self.align = max(1, int(align))
         self.h = open_raw(self.path)
         self.hlock = threading.Lock()
         self.pos = 0
@@ -119,15 +122,16 @@ class ReadOnlySource:
             if length <= 0:
                 return b""
         absoff = self.base + offset
-        start = absoff - (absoff % ALIGN)
+        start = absoff - (absoff % self.align)
         end = absoff + length
-        end_al = end + (-end % ALIGN)
+        end_al = end + (-end % self.align)
         try:
             buf = self._raw(start, end_al - start)
         except OSError:
             # Windows raw devices reject reads that run past the end; retry exactly to the end
             if not isinstance(self.h, int) and end_al != end:
-                buf = self._raw(start, ((end - start) // 512 + bool((end - start) % 512)) * 512)
+                unit = 512 if self.align == ALIGN else self.align
+                buf = self._raw(start, -(-(end - start) // unit) * unit)
             else:
                 raise
         skip = absoff - start
@@ -180,6 +184,55 @@ def device_size(path: str) -> int:
             return 0
     finally:
         os.close(fd)
+
+
+def logical_sector_size(path: str) -> int:
+    """Logical sector size of a device (what a raw read must be a multiple of); 512 for image files or if unknown."""
+    path = split_src(path)[0]
+    try:
+        if stat.S_ISREG(os.stat(path).st_mode):
+            return 512
+    except OSError:
+        pass
+    size = _win_sector_size(path) if IS_WIN else _unix_sector_size(path)
+    return size if size in (512, 1024, 2048, 4096) else 512
+
+
+def _unix_sector_size(path: str) -> int:
+    try:
+        import fcntl
+        import struct
+        fd = os.open(path, os.O_RDONLY)
+    except (OSError, ImportError):
+        return 512
+    try:
+        if sys.platform == "darwin":
+            return struct.unpack("I", fcntl.ioctl(fd, 0x40046418, b"\0" * 4))[0]     # DKIOCGETBLOCKSIZE
+        return struct.unpack("I", fcntl.ioctl(fd, 0x1268, b"\0" * 4))[0]             # BLKSSZGET
+    except OSError:
+        return 512
+    finally:
+        os.close(fd)
+
+
+def _win_sector_size(path: str) -> int:
+    try:
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.windll.kernel32
+        k32.CreateFileW.restype = wintypes.HANDLE
+        h = k32.CreateFileW(path, 0x80000000, 3, None, 3, 0, None)
+        if h in (None, wintypes.HANDLE(-1).value):
+            return 512
+        try:
+            buf = ctypes.create_string_buffer(64)
+            ret = wintypes.DWORD(0)
+            ok = k32.DeviceIoControl(h, 0x70000, None, 0, buf, 64, ctypes.byref(ret), None)  # IOCTL_DISK_GET_DRIVE_GEOMETRY
+            return int.from_bytes(buf.raw[20:24], "little") if ok else 512                   # DISK_GEOMETRY.BytesPerSector
+        finally:
+            k32.CloseHandle(h)
+    except Exception:
+        return 512
 
 
 def _win_device_size(path: str) -> int:

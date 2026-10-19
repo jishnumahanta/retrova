@@ -260,12 +260,20 @@ function copyJob(params) {
 function imageJob(params) {
   const total = params.total || 1999.8 * GB;
   const j = new Job('image', `Creating a disk image of ${params.label || 'MacStorage'}`, params, 90);
+  // copy -> trim -> scrape -> retry, like the real job; a little damage is left at the end
+  const PH = [[0.55, 'copy', 'Copying - reading the healthy parts first'], [0.75, 'trim', 'Trimming - checking the edges of damaged areas'], [0.92, 'scrape', 'Scraping - reading damaged areas sector by sector'], [1, 'retry', 'Retrying - one more try at the unreadable sectors']];
   j.describe = (p, jb) => {
-    const sp = jb.state === 'running' ? 410 * MB : 0;
+    const done = jb.state === 'done';
+    const [, id, text] = PH.find(x => p < x[0]) || PH[3];
+    const sp = jb.state === 'running' ? (id === 'copy' ? 410 * MB : id === 'trim' ? 38 * MB : 0.4 * MB) : 0;
+    const bad = done ? 1.5 * MB : p < 0.3 ? 0 : p < 0.75 ? 48 * MB * Math.min(1, (p - 0.3) / 0.2) : p < 0.92 ? 3 * MB : 1.5 * MB;
+    const areas = p < 0.3 ? 0 : done ? 2 : p < 0.75 ? 3 : 2;
+    const bytesDone = Math.round(total * Math.min(p / 0.55, 1) * 0.98);
     return {
-      phase: jb.state === 'done' ? 'Image finished' : 'Copying blocks',
-      stats: { bytes_done: Math.round(total * p), bytes_total: total, speed: sp, eta: sp ? total * (1 - p) / sp : null, zero_bytes: Math.round(total * p * 0.62), bad: p > 0.4 ? 3 : 0 },
-      out: params.out, free: 2410 * GB - total * p * 0.38,
+      phase: done ? 'Finished' : text, phase_id: done ? 'done' : id, pass: 1, sha256: '',
+      stats: { bytes_done: bytesDone, rescued: bytesDone, bytes_total: total, speed: sp, eta: sp && id === 'copy' ? total * (0.55 - p) / sp : null, zero_bytes: Math.round(total * p * 0.62), bad_bytes: bad, error_areas: areas, failed: areas },
+      bad_bytes: bad, error_areas: areas, out: params.out, free: 2410 * GB - total * p * 0.38,
+      message: done ? '1.5 MB could not be read and are zeros in the image. They are listed in the log next to it; the .map file lets GNU ddrescue keep trying.' : '',
     };
   };
   return j;
