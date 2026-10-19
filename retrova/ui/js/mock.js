@@ -605,7 +605,7 @@ const routes = {
   },
   'GET /api/recover/free': (q) => { const v = DRIVES.volumes.filter(v => (q.out || '').startsWith(v.mount)).sort((a, b) => b.mount.length - a.mount.length)[0] || DRIVES.volumes[0]; return { out: q.out, free: v.free, exists: false }; },
   'GET /api/recover/carve_types': () => ({ groups: ['photos', 'videos', 'music', 'documents', 'archives', 'other'], types: [
-    ['jpg', 'jpg', 'photos', 'JPEG photos'], ['png', 'png', 'photos', 'PNG images'], ['heic', 'heic', 'photos', 'HEIC photos (iPhone)'], ['gif', 'gif', 'photos', 'GIF images'], ['cr2', 'cr2', 'photos', 'Canon RAW'], ['nef', 'nef', 'photos', 'Nikon RAW'],
+    ['jpg', 'jpg', 'photos', 'JPEG photos'], ['png', 'png', 'photos', 'PNG images'], ['heic', 'heic', 'photos', 'HEIC photos (iPhone)'], ['gif', 'gif', 'photos', 'GIF images'], ['cr2', 'cr2', 'photos', 'Canon RAW'], ['cr3', 'cr3', 'photos', 'Canon RAW (CR3)'], ['nef', 'nef', 'photos', 'Nikon RAW'], ['arw', 'arw', 'photos', 'Sony RAW'], ['raf', 'raf', 'photos', 'Fujifilm RAW'],
     ['mp4', 'mp4', 'videos', 'MP4 videos'], ['mov', 'mov', 'videos', 'QuickTime videos'], ['avi', 'avi', 'videos', 'AVI videos'],
     ['mp3', 'mp3', 'music', 'MP3 audio'], ['wav', 'wav', 'music', 'WAV audio'], ['m4a', 'm4a', 'music', 'AAC audio'],
     ['pdf', 'pdf', 'documents', 'PDF documents'], ['docx', 'docx', 'documents', 'Word documents'], ['xlsx', 'xlsx', 'documents', 'Excel spreadsheets'], ['pptx', 'pptx', 'documents', 'PowerPoint decks'],
