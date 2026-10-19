@@ -22,7 +22,7 @@ from ..jobs import JOBS
 from ..server import ApiError, route
 from ..util import IS_MAC, IS_WIN, human
 from . import regen_rules
-from .common import (BLOCK, SKIP_ABS, ZERO_BLOCK, ToolJob, allowed_devs, as_int, clean_path, friendly_error,
+from .common import (BLOCK, SKIP_ABS, ZERO_BLOCK, ToolJob, allowed_devs, entry_stat, as_int, clean_path, friendly_error,
                      is_package_name, plural, sample_hash, variant_of, walk_files)
 
 # ---------------------------------------------------------------- file types
@@ -207,7 +207,7 @@ class AnalyseJob(ToolJob):
                         child = os.path.join(path, e.name)
                         if child in SKIP_ABS:
                             continue
-                        dst = e.stat(follow_symlinks=False)
+                        dst = entry_stat(e)
                         if dst.st_dev not in devs:
                             if len(self.skipped_mounts) < 50:
                                 self.skipped_mounts.append(child)

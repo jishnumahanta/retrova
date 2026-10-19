@@ -358,6 +358,13 @@ SKIP_NAMES = {".Spotlight-V100", ".fseventsd", ".DocumentRevisions-V100", ".Temp
               "System Volume Information", "$RECYCLE.BIN", ".Trashes", "$Recycle.Bin"}
 
 
+def entry_stat(e):
+    """lstat of an os.scandir entry. On Windows DirEntry.stat() leaves st_dev, st_ino and st_nlink
+    at 0, so the one-volume check skipped every subfolder and file identity checks misfired;
+    os.lstat() fills them in."""
+    return os.lstat(e.path) if IS_WIN else e.stat(follow_symlinks=False)
+
+
 def allowed_devs(root: str) -> set:
     """Devices a walk of `root` may enter (one volume; on macOS the system+data volume pair)."""
     devs = set()
@@ -431,12 +438,12 @@ def walk_files(roots, job: Job | None = None, *, hidden: bool = True, packages: 
                         if skip_dir and skip_dir(e.path, e.name):
                             continue
                         if devs is not None:
-                            dst = e.stat(follow_symlinks=False)
+                            dst = entry_stat(e)
                             if dst.st_dev not in devs:
                                 continue
                         subs.append(e.path)
                     elif e.is_file(follow_symlinks=False):
-                        fst = e.stat(follow_symlinks=False)
+                        fst = entry_stat(e)
                         if not hidden and is_hidden(e.name, fst):
                             continue
                         yield e.path, fst

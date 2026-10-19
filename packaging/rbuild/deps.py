@@ -109,10 +109,10 @@ def copy_site(site_src: Path, site_dst: Path, target: str) -> list[str]:
             for p in list(lib.iterdir()):
                 rmtree(p)           # WebView2 / WinForms .NET assemblies are Windows-only
         else:
-            rt = lib / "runtimes"
-            for p in rt.iterdir() if rt.exists() else []:
-                if p.name not in ("win-x64",):
-                    rmtree(p)
+            # Keep every lib/runtimes/win-* folder: pywebview's edgechromium.py adds all three
+            # (win-arm64, win-x64, win-x86) to PATH at import and raises FileNotFoundError if one
+            # is missing. Then the WebView2 window never opens and Retrova falls back to an Edge
+            # window without native dialogs (1.0.0 and 1.0.1 shipped like that).
             rmtree(lib / "WebBrowserInterop.x86.dll")
     rmtree(site_dst / "PyObjCTest")   # pyobjc's own test-suite helpers
     for p in list(site_dst.rglob("*.dSYM")):
