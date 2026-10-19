@@ -121,6 +121,11 @@ def to_trash(paths) -> dict:
         try:
             if not os.path.lexists(p):
                 raise FileNotFoundError(p)
+            why = no_recycle_bin_reason(p)
+            if why:
+                # Refuse up front: Windows deletes permanently when a drive has no Recycle Bin.
+                failed.append({"path": p, "error": why})
+                continue
             if send2trash is not None:
                 send2trash(p)
             elif IS_MAC:
@@ -131,6 +136,34 @@ def to_trash(paths) -> dict:
         except Exception as ex:
             failed.append({"path": p, "error": f"{type(ex).__name__}: {ex}"})
     return {"moved": moved, "failed": failed}
+
+
+_DRIVE_FIXED = 3
+
+
+def no_recycle_bin_reason(path: str) -> str:
+    """Windows only: why `path` can't be sent to a Recycle Bin, or "" if it can.
+
+    USB sticks, memory cards and network shares have no Recycle Bin, and the shell deletes from them
+    permanently - so Retrova refuses instead. The message avoids a colon-space on purpose: callers
+    split error text on it."""
+    if not IS_WIN:
+        return ""
+    msg = ("This drive has no Recycle Bin (USB stick, memory card or network share), so Retrova won't "
+           "delete from it - that would be permanent. Delete it yourself in File Explorer if you're sure.")
+    try:
+        import ctypes
+        full = os.path.abspath(display_path(path))
+        if full.startswith("\\\\"):                      # \\server\share\...
+            return msg
+        buf = ctypes.create_unicode_buffer(1024)
+        # The volume's mount point (a drive letter, or a folder mounted from another drive).
+        if not ctypes.windll.kernel32.GetVolumePathNameW(full, buf, len(buf)):
+            return msg
+        kind = ctypes.windll.kernel32.GetDriveTypeW(buf.value)
+        return "" if kind == _DRIVE_FIXED else msg
+    except Exception:
+        return msg      # can't tell, so don't risk a permanent delete
 
 
 def _mac_trash(p):

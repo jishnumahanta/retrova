@@ -2,7 +2,7 @@
 
   python -m retrova                 normal start (native window)
   python -m retrova --no-window     server only, prints the URL (for testing)
-  python -m retrova --serve-only --port P --token T --parent PID
+  python -m retrova --serve-only --port P --token-file F --parent PID
                                    elevated helper started by /api/elevate
 """
 from __future__ import annotations
@@ -60,6 +60,25 @@ def _native_pick(q, body):
     if not res:
         return {"paths": []}
     return {"paths": [res] if isinstance(res, str) else list(res)}
+
+
+def read_token_file(path: str) -> str:
+    """Read the session token the app left for this elevated helper, then delete it (and its private
+    folder). Keeping the token off the command line stops other processes reading it from the process list."""
+    try:
+        with open(path, encoding="ascii") as f:
+            token = f.read().strip()
+    except OSError as ex:
+        sys.exit(f"[retrova] couldn't read the token file: {ex}")
+    finally:
+        try:
+            os.remove(path)
+            os.rmdir(os.path.dirname(path))
+        except OSError:
+            pass
+    if not token:
+        sys.exit("[retrova] the token file was empty")
+    return token
 
 
 def watch_parent(pid: int):
@@ -142,6 +161,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="retrova", description=f"{APP_NAME} {__version__}")
     ap.add_argument("--port", type=int, default=0)
     ap.add_argument("--token")
+    ap.add_argument("--token-file", help=argparse.SUPPRESS)   # elevated helper: private file holding the token
     ap.add_argument("--no-window", action="store_true", help="don't open a window; print the URL")
     ap.add_argument("--serve-only", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--parent", type=int, default=0, help=argparse.SUPPRESS)
@@ -152,7 +172,10 @@ def main(argv=None):
     if args.src:
         os.environ["RETROVA_START_SOURCE"] = args.src
     register_all()
-    server = Server(args.port, args.token)
+    token = args.token
+    if args.token_file:
+        token = read_token_file(args.token_file)
+    server = Server(args.port, token)
     threading.Thread(target=server.serve_forever, daemon=True, name="http").start()
     url = server.url
     print(f"{APP_NAME} {__version__} running at {url}", flush=True)

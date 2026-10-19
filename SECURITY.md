@@ -19,10 +19,11 @@ Retrova was engineered from the ground up for strict privacy, data integrity, an
 ### 3. Non-Destructive File Management
 * Deletion operations never use permanent removal commands (`rm` / `unlink`).
 * Removals are routed through your operating system's native Trash (`send2trash` / macOS Finder Trash / Windows Recycle Bin), allowing any removed file to be restored.
+* If a drive has no Recycle Bin (USB sticks, memory cards, network shares on Windows), Retrova refuses to remove files from it rather than let Windows delete them permanently.
 * Files written to output directories are staged as `.part` files and renamed upon verification to prevent corrupt or partial overwrites.
 
 ### 4. Local OCR Processing
-* Text recognition in photos, screenshots, and PDFs is computed entirely on-device using native OS frameworks (Apple Vision on macOS, Windows.Media.Ocr on Windows).
+* Text recognition in photos and screenshots, and text search in PDFs, is computed entirely on-device using native OS frameworks (Apple Vision on macOS, Windows.Media.Ocr on Windows). PDFs are read through their text layer only; scanned PDF pages are not OCR'd.
 * The search index is stored in a local SQLite FTS5 database on your physical hard drive and is never uploaded anywhere.
 
 ---

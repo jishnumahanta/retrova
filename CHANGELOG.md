@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).
+- **Fixed: removing files on a drive without a Recycle Bin (USB stick, memory card, network share) on Windows.** Windows can delete from those permanently. Retrova now refuses and says so, instead of moving to a Recycle Bin that isn't there.
+- **Corrected the descriptions of what Retrova does:** it doesn't browse APFS snapshots, deep scan recognises 45 file types, and PDFs are searched by their text layer (scanned PDF pages aren't OCR'd). APFS compressed files (zlib, LZVN, LZFSE) are read.
+
 ## 1.0.2 (19 October 2026)
 
 Windows fixes. If you're on Windows, please update.
