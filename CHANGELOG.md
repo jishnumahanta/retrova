@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- **New: careful imaging of failing drives.** Creating a disk image now works the way GNU ddrescue does. A first pass saves all the healthy data and skips ahead when the drive reports errors (so a weak drive isn't pushed into the bad spots first), then Retrova trims the edges of the damaged areas, reads what's left sector by sector and tries the unreadable sectors again (one extra try by default; you can change it). The window shows which step it is on, how much is saved, how much is unreadable and the speed. Stop keeps everything, including after closing the app.
+- **New: the image comes with a `.map` file** in GNU ddrescue's format, so you can carry on with `ddrescue` if you want to keep trying. `.unreadable.txt` is still written. A complete image with nothing unreadable also gets a `.sha256` fingerprint file.
+
 ## Unreleased
 
 - **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).

@@ -67,7 +67,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
   * **NTFS**, **FAT12/16/32**, **exFAT**
   * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
 * **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
-* **Sector-Safe Disk Imaging**: Creates raw bit-for-bit `.img` disk images with bad-sector skipping and sparse zero-block detection.
+* **Careful Imaging of Failing Drives**: Creates raw `.img` disk images the way GNU ddrescue does: a first pass saves the healthy data and skips ahead on read errors, then damaged areas are trimmed at their edges, scraped sector by sector and retried. Progress is kept in a ddrescue-compatible `.map` file, so Stop and app restarts continue exactly where it stopped. Zero areas are skipped (sparse), unreadable areas are listed, and a complete image gets a SHA-256 fingerprint.
 
 ### 🔍 Verify & Repair
 * **Byte-for-Byte Comparison**: Compares recovered copies directly against the original drive blocks in **Quick** (name & size), **Sample** (64KB head/tail hash), or **Full** (byte-for-byte) mode.
