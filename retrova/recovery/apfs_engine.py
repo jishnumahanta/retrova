@@ -61,23 +61,22 @@ def _patch_apfs():
 
     if getattr(_apfs_stream.FileStream._read, "_retrova", False):
         return
-    orig = _apfs_stream.FileStream._read
 
     def file_stream_read(self, offset, length):
-        if self.volume.is_encrypted:
-            return orig(self, offset, length)
-        bs = self.volume.container.block_size
+        vol = self.volume
+        bs = vol.container.block_size
+        cipher = _volume_cipher(vol)
         out = []
         while length > 0:
             try:
-                logical, phys, ext_len, _ = self._lookup(offset)
+                logical, phys, ext_len, crypto_id = self._lookup(offset)
             except _apfs_stream.Error:
                 alt = getattr(self, "_t5r_alt_oid", None)
                 if alt is None:
                     raise
                 # try the other identifier once, then stick with whichever works
                 self.oid, self._t5r_alt_oid = alt, None
-                logical, phys, ext_len, _ = self._lookup(offset)
+                logical, phys, ext_len, crypto_id = self._lookup(offset)
             off_in = offset - logical
             avail = ext_len - off_in
             if avail <= 0:
@@ -88,7 +87,14 @@ def _patch_apfs():
             else:
                 skip = off_in % bs
                 nblocks = (skip + n + bs - 1) // bs
-                data = self.volume.container._read_block(phys + off_in // bs, nblocks)[skip:skip + n]
+                data = vol.container._read_block(phys + off_in // bs, nblocks)
+                if cipher is not None:
+                    if len(data) != nblocks * bs:
+                        raise _apfs_stream.Error(f"short read for oid {self.oid} at {offset}")
+                    # AES-XTS: the tweak counts 512-byte sectors from the extent's crypto id
+                    data = cipher.decrypt(data, crypto_id * vol.container.sectors_per_block
+                                          + (off_in // bs) * vol.container.sectors_per_block)
+                data = data[skip:skip + n]
                 if len(data) < n:
                     raise _apfs_stream.Error(f"short read for oid {self.oid} at {offset}")
             out.append(data)
@@ -112,6 +118,18 @@ def _patch_apfs():
         return BufferedStream(BytesIO(b""), size=0)
 
     _fs.INode.open = inode_open
+
+
+def _volume_cipher(vol):
+    """The unlocked volume's AES-XTS cipher; None for plain volumes. Locked or per-file-key volumes raise."""
+    from dissect.apfs.exception import Error
+    if not vol.is_encrypted:
+        return None
+    if vol._cipher is None:
+        raise Error("Volume is encrypted, unlock it first")
+    if not vol.is_onekey:
+        raise Error("Multi-key encryption is not supported")
+    return vol._cipher
 
 
 def kind_of(ino) -> str:
