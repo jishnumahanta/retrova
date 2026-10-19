@@ -25,7 +25,7 @@ from retrova.util import IS_WIN, free_bytes, run as run_cmd
 
 from .common import give_to_user, human, long_path, makedirs_owned_safe
 from .rescuemap import BAD, FINISHED, NON_SCRAPED, NON_TRIED, NON_TRIMMED, RescueMap
-from .source import ReadOnlySource
+from .source import ReadOnlySource, logical_sector_size
 
 PROGRESS_SUFFIX = ".retrova-progress"
 MAP_SUFFIX = ".map"
@@ -47,7 +47,7 @@ class ImageJob(Job):
     SAVE_EVERY = 2.0                # seconds between map saves
 
     def __init__(self, source, offset, total, out_path, reserve_gb, label="", params=None,
-                 retries=1, reverse=False, sector=512):
+                 retries=1, reverse=False, sector=None):
         super().__init__(params)
         self.source, self.offset, self.total = source, int(offset or 0), int(total)
         self.out_path = out_path
@@ -59,7 +59,7 @@ class ImageJob(Job):
         self.reserve = int(float(reserve_gb) * 1024 ** 3)
         self.retries = max(0, int(retries))
         self.reverse = bool(reverse)
-        self.sector = max(512, int(sector))
+        self.sector = int(sector) if sector else None   # None: the device's logical sector size, found when the job starts
         self.title = f"Creating a disk image of {label}" if label else "Creating a disk image"
         self.stop_reason = ""
         self.map = RescueMap(self.total)
@@ -78,7 +78,7 @@ class ImageJob(Job):
         super().stop()
 
     def _open_source(self):
-        return ReadOnlySource(self.source, self.offset, self.total)
+        return ReadOnlySource(self.source, self.offset, self.total, align=self.sector)
 
     # ---------------- resume
     def _load_resume(self):
@@ -337,6 +337,8 @@ class ImageJob(Job):
             self.phase = "Finished"
 
     def run(self):
+        if self.sector is None:
+            self.sector = logical_sector_size(self.source)
         src = self._open_source()
         out = None
         try:
