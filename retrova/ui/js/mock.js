@@ -174,6 +174,8 @@ const SOURCES = [
   SRC(WIN ? '\\\\.\\PhysicalDrive4' : '/dev/rdisk6', 1048576, 'EOS_DIGITAL', 63.9 * GB, 'fat32', 'FAT32', 'SD card', 'Opened by your computer at ' + (WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL') + ' - you can also copy files from it normally.', { mount: WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL', health: 'unknown' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive3' : '/dev/rdisk5', 0, 'Backup Plus', 4000 * GB, 'exfat', 'exFAT', 'Backup Plus', 'Opened by your computer at ' + (WIN ? 'E:\\' : '/Volumes/Backup Plus') + ' - you can also copy files from it normally.', { mount: WIN ? 'E:\\' : '/Volumes/Backup Plus' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 2000 * GB, '', 120 * GB, null, 'Unknown', 'Samsung T5', "No file system Retrova recognises. A deep scan can still find files by their contents.", { health: 'warn' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive5' : '/dev/rdisk7', 1048576, '', 238 * GB, 'bitlocker', 'BitLocker (encrypted)', 'Kingston USB', 'Locked with BitLocker. Retrova can open it if you have its password or 48-digit recovery key.', { locked: true, recommended: true, health: 'ok' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive6' : '/dev/rdisk8', 0, '', 1000 * GB, 'luks', 'LUKS (encrypted)', 'Seagate Expansion', 'Locked with LUKS (Linux disk encryption). Retrova can open it if you have its passphrase.', { locked: true, health: 'ok' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive0' : '/dev/rdisk0', 40960, WIN ? 'Windows' : 'Macintosh HD', 994 * GB, WIN ? 'ntfs' : 'apfs', WIN ? 'NTFS' : 'APFS', WIN ? 'Local Disk' : 'Macintosh HD', 'Opened by your computer at ' + (WIN ? 'C:\\' : '/') + ' - you can also copy files from it normally.', { mount: WIN ? 'C:\\' : '/', removable: false }),
 ];
 const findSource = b => SOURCES.find(s => s.source === b.source && (b.offset === undefined || b.offset === null || s.offset === b.offset)) || (SOURCES.find(s => s.source === b.source && b.volume && (s.volumes || []).includes(b.volume)));
@@ -568,16 +570,28 @@ const routes = {
   'GET /api/recover/sources': () => ({ sources: SOURCES, admin: ADMIN }),
   'POST /api/recover/open': (q, b) => {
     const src = findSource(b);
+    const lockedKind = src && (src.fs === 'bitlocker' || src.fs === 'luks' ? src.fs : null);
+    if (lockedKind) {
+      // demo rules: the password is "letmein"; any 48-digit recovery key is accepted for BitLocker
+      if (!b.key) return { needs_key: { kind: lockedKind, label: lockedKind === 'bitlocker' ? 'KINGSTON-PC Work 3/14/2025' : '', accepts: lockedKind === 'bitlocker' ? ['password', 'recovery'] : ['password'],
+        hint: (lockedKind === 'bitlocker' ? "Enter the drive's password, or its 48-digit recovery key." : 'Enter the passphrase for this encrypted Linux drive.') + ' (Demo: the password is letmein.)', volume: null },
+        source: src.source, offset: src.offset, size: src.size, fs: src.fs, fs_name: src.fs_name, partitions: [] };
+      const recovery = lockedKind === 'bitlocker' && b.key.replace(/\D/g, '').length === 48;
+      if (b.key !== 'letmein' && !recovery) throw new ApiError(lockedKind === 'bitlocker' ? "That password or recovery key didn't unlock the drive. Check it and try again." : "That passphrase didn't unlock the drive. Check it and try again.", 400);
+    }
     if (src && src.needs_admin) throw new ApiError("Retrova needs administrator rights to read this drive directly. Use \u201cAllow access\u201d (you'll be asked for your password) and try again.", 403);
     if (src && !src.fs) throw new ApiError('No partitions or filesystems were found on this drive - it may be blank, encrypted or badly damaged. Deep scan can still look for photos, videos and documents.', 422);
     const sid = `s${++sessionSeq}`;
     const isImg = !src;
-    const label = b.volume || (src ? src.label : (b.source || '').split(/[\\/]/).pop().replace(/\.[^.]+$/, ''));
+    const inner = lockedKind === 'bitlocker' ? ['ntfs', 'NTFS'] : lockedKind === 'luks' ? ['ext4', 'ext4'] : null;
+    const label0 = lockedKind ? (lockedKind === 'bitlocker' ? 'Work' : 'Backup') : null;
+    const label = label0 || b.volume || (src ? src.label : (b.source || '').split(/[\\/]/).pop().replace(/\.[^.]+$/, ''));
     const apfs = !src || src.fs === 'apfs';
-    const s = { sid, fs: apfs ? 'apfs' : src.fs, fs_name: apfs ? 'APFS' : src.fs_name, label, volumes: apfs ? ['MacStorage', 'MacStorage - Data'] : [label], volume: apfs ? label : null,
+    const s = { sid, fs: apfs ? 'apfs' : inner ? inner[0] : src.fs, fs_name: apfs ? 'APFS' : inner ? inner[1] : src.fs_name, label, volumes: apfs ? ['MacStorage', 'MacStorage - Data'] : [label], volume: apfs ? label : null,
       size: src ? src.size : 500 * GB, source: b.source, offset: src ? src.offset : 0, is_image: isImg, read_only: true, default_out: jp(HOME, 'Recovered'),
       partitions: src ? SOURCES.filter(x => x.source === src.source).map((x, i) => ({ index: i, offset: x.offset, size: x.size, fs: x.fs, fs_name: x.fs_name, label: x.label, supported: !!x.fs })) : [],
-      notes: apfs ? ['The newest checkpoint was damaged, so Retrova is using the one from 3 minutes earlier.', 'Parts of this filesystem look damaged; some folders may be unreadable.'] : [] };
+      encryption: lockedKind ? { kind: lockedKind, name: lockedKind === 'bitlocker' ? 'BitLocker' : 'LUKS', unlocked: true } : null,
+      notes: lockedKind ? [`This ${lockedKind === 'bitlocker' ? 'BitLocker' : 'LUKS'} drive is unlocked with the key you entered. Retrova only reads it, and forgets the key when you leave this drive.`] : apfs ? ['The newest checkpoint was damaged, so Retrova is using the one from 3 minutes earlier.', 'Parts of this filesystem look damaged; some folders may be unreadable.'] : [] };
     sessions.set(sid, s);
     return s;
   },
@@ -608,6 +622,7 @@ const routes = {
     return { sizes: out };
   },
   'POST /api/recover/regen': (q, b) => regenJob(b).status(),
+  'POST /api/recover/close': (q, b) => ({ closed: sessions.delete(b.sid) }),
   'POST /api/recover/copy': (q, b) => {
     if (!b.out) throw new ApiError('Choose where to save the recovered files first.');
     if (!b.paths?.length) throw new ApiError('Tick something to recover first.');

@@ -30,6 +30,7 @@ class CopyJob(Job):
         super().__init__(params)
         self.spec = dict(spec)
         self.src_label = label
+        self.holds = [spec["unlock"]] if spec.get("unlock") else []
         self.title = f"Recovering files from {label}" if label else "Recovering files"
         self.paths = [norm_src(p) for p in paths]
         self.out_root = out_root

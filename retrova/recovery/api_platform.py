@@ -194,6 +194,7 @@ LINKS = {
     "website": "https://retrova.jishnumahanta.in/",
     "support": "https://retrova.jishnumahanta.in/#support",
     "issues": "https://github.com/jishnumahanta/retrova/issues",
+    "bitlocker_key": "https://aka.ms/myrecoverykey",
 }
 
 

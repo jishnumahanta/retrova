@@ -13,6 +13,7 @@ from retrova.util import IS_WIN, free_bytes, run as run_cmd
 
 from .common import give_to_user, human, long_path, makedirs_owned_safe
 from .source import ReadOnlySource
+from .unlock import open_decrypted
 
 PROGRESS_SUFFIX = ".retrova-progress"
 
@@ -23,8 +24,12 @@ class ImageJob(Job):
     exclusive = True
     CHUNK = int(os.environ.get("RETROVA_IMG_CHUNK", os.environ.get("T5R_IMG_CHUNK", 8 * 1024 * 1024)))
 
-    def __init__(self, source, offset, total, out_path, reserve_gb, label="", params=None):
+    def __init__(self, source, offset, total, out_path, reserve_gb, label="", params=None, decrypt=None):
+        """decrypt: the session spec of an unlocked BitLocker / LUKS volume - the image then holds the
+        decrypted volume (and `total` is its decrypted size) instead of the scrambled bytes on the drive."""
         super().__init__(params)
+        self.decrypt = dict(decrypt) if decrypt else None
+        self.holds = [decrypt["unlock"]] if decrypt and decrypt.get("unlock") else []
         self.source, self.offset, self.total = source, int(offset or 0), int(total)
         self.out_path = out_path
         self.io_path = long_path(out_path)
@@ -109,7 +114,8 @@ class ImageJob(Job):
             pass
 
     def run(self):
-        src = ReadOnlySource(self.source, self.offset, self.total)
+        src = (open_decrypted(self.decrypt, self.decrypt["fs"]) if self.decrypt
+               else ReadOnlySource(self.source, self.offset, self.total))
         try:
             self.phase = "Preparing…"
             head = src.pread(0, 65536)

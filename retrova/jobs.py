@@ -39,9 +39,19 @@ class Job:
         self._stop_ev = threading.Event()
         self._samples: collections.deque = collections.deque(maxlen=30)
         self._thread: threading.Thread | None = None
+        self.holds: list = []      # resources (unlock keys) this job keeps alive while it runs
+        self._held: list = []
+
+    def release_held(self):
+        held, self._held = self._held, []
+        for r in held:
+            r.release()
 
     # ------------------------------------------------ lifecycle
     def start(self):
+        for r in self.holds:
+            r.hold()
+            self._held.append(r)
         self._thread = threading.Thread(target=self._wrap, daemon=True, name=f"job-{self.kind}")
         self._thread.start()
         return self
@@ -63,6 +73,7 @@ class Job:
                 self.finish()
             except Exception:
                 traceback.print_exc()
+            self.release_held()
 
     def run(self):
         raise NotImplementedError
@@ -138,7 +149,11 @@ class JobManager:
                         raise RuntimeError(f"Wait for '{j.title}' to finish (or stop it) first - "
                                            f"only one job reads a disk at a time.")
             self.jobs[job.id] = job
-        return job.start()
+        try:
+            return job.start()
+        except BaseException:         # e.g. its unlock key is already gone: it never ran, so don't list it
+            self.jobs.pop(job.id, None)
+            raise
 
     def get(self, jid: str) -> Job:
         j = self.jobs.get(jid)

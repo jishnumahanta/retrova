@@ -16,6 +16,7 @@ from retrova.util import free_bytes
 from .carve_formats import MAX_MAGIC_SPAN, SIGNATURES, TYPES
 from .common import PART_SUFFIX, give_to_user, human, makedirs_owned_safe, unique_name
 from .source import ReadOnlySource
+from .unlock import open_decrypted
 
 CHUNK = int(os.environ.get("RETROVA_CARVE_CHUNK", 16 * 1024 * 1024))
 OVERLAP = max(64, MAX_MAGIC_SPAN)
@@ -105,8 +106,12 @@ class CarveJob(Job):
     title = "Deep scan for lost files"
     exclusive = True
 
-    def __init__(self, source, start, end, out, types, reserve_gb=2.0, aligned=False, params=None):
+    def __init__(self, source, start, end, out, types, reserve_gb=2.0, aligned=False, params=None, decrypt=None):
+        """decrypt: the session spec of an unlocked BitLocker / LUKS volume - start / end are then offsets
+        inside the decrypted volume."""
         super().__init__(params)
+        self.decrypt = dict(decrypt) if decrypt else None
+        self.holds = [decrypt["unlock"]] if decrypt and decrypt.get("unlock") else []
         self.source, self.scan_start, self.scan_end = source, int(start), int(end)
         self.out = out
         self.types = set(types)
@@ -172,7 +177,7 @@ class CarveJob(Job):
 
     # ---------------- main loop
     def run(self):
-        src = ReadOnlySource(self.source)
+        src = open_decrypted(self.decrypt, self.decrypt["fs"]) if self.decrypt else ReadOnlySource(self.source)
         rd = CarveReader(src, self.scan_end, self._on_bad)
         try:
             self.pos = self._load_resume()
