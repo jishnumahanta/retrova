@@ -4,6 +4,7 @@
 
 - **New: careful imaging of failing drives.** Creating a disk image now works the way GNU ddrescue does. A first pass saves all the healthy data and skips ahead when the drive reports errors (so a weak drive isn't pushed into the bad spots first), then Retrova trims the edges of the damaged areas, reads what's left sector by sector and tries the unreadable sectors again (one extra try by default; you can change it). The window shows which step it is on, how much is saved, how much is unreadable and the speed. Stop keeps everything, including after closing the app.
 - **New: the image comes with a `.map` file** in GNU ddrescue's format, so you can carry on with `ddrescue` if you want to keep trying. `.unreadable.txt` is still written. A complete image with nothing unreadable also gets a `.sha256` fingerprint file.
+- **New: Retrova can read Mac OS Extended (HFS+ and HFSX) drives.** That covers older Macs, many Time Machine drives and older external drives. Folders, files, symlinks, hard links, resource forks and compressed files are read, names with accents and emoji come out right, and Time Machine backup folders can be browsed like any other folder. Apple Partition Map disks (old PowerPC Macs) are recognised too. Not covered: the drive's journal isn't replayed, so changes made just before a drive was pulled out without ejecting may be missing (Retrova says so when it sees that).
 
 ## Unreleased
 

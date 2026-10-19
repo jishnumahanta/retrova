@@ -76,8 +76,8 @@ All responses JSON unless noted. (job) = returns a job status object.
   candidates: every partition/whole disk with a recognised filesystem; flag ones the OS can't mount or that look damaged.
 - `POST /api/recover/open {source, offset?: int, volume?: str}` -> `{sid, fs, label, volumes: [str], size, source, notes: [str]}`
   source = raw device (`/dev/rdiskN`, `/dev/diskNsM`, `\\.\PhysicalDriveN`, `/dev/sdX`) or a disk-image file path.
-  Auto-detects GPT/MBR partitions and filesystems: APFS (via legacy engine incl. all its patches), NTFS, FAT12/16/32,
-  exFAT, ext2/3/4, XFS, Btrfs. Read-only always.
+  Auto-detects GPT/MBR/Apple Partition Map partitions and filesystems: APFS (via legacy engine incl. all its patches), NTFS, FAT12/16/32,
+  exFAT, ext2/3/4, XFS, Btrfs, HFS+/HFSX (own reader, `recovery/hfsplus.py`). Read-only always.
 - `GET /api/recover/ls?sid=&path=/` -> `{path, entries: [{name, path, kind: dir|file|link|other, size, mtime (ms), error?}]}`
 - `GET /api/recover/preview?sid=&path=` -> raw file bytes with Range support (images, video, pdf, text).
 - `POST /api/recover/size {sid, paths: [], patterns: []}` -> `{sizes: {path: {state: queued|running|done|error, bytes, files, errors}}}`

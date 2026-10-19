@@ -99,12 +99,12 @@ def test_unknown_and_unsupported(tmp_path):
     lay = scan(str(p))
     assert lay["parts"] == [] and lay["scheme"] == "unknown"
     h = bytearray(8192)
-    h[1024:1026] = b"H+"
-    q = tmp_path / "hfs.img"
+    h[3:11] = b"ReFS\0\0\0\0"
+    q = tmp_path / "refs.img"
     q.write_bytes(bytes(h))
     lay = scan(str(q))
-    assert lay["parts"][0]["fs"] == "hfs+" and not lay["parts"][0]["supported"]
-    assert "HFS+" in lay["parts"][0]["why"]
+    assert lay["parts"][0]["fs"] == "refs" and not lay["parts"][0]["supported"]
+    assert "ReFS" in lay["parts"][0]["why"]
 
 
 def test_container_formats(tmp_path):
