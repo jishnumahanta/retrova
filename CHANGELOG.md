@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- **New: open encrypted drives with your key.** BitLocker (password or recovery key), LUKS 1/2 (passphrase) and FileVault / encrypted APFS volumes (password or recovery key). Locked drives are marked "Locked"; Retrova asks for the key, shows a plain error if it's wrong so you can retry, then browses the files inside as usual. Copy, Verify, Create image and Deep scan work on the unlocked contents. Keys stay in memory only (never written, logged or sent back to the screen) and are forgotten when you leave the drive. Drives locked to a Mac's own security chip can't be unlocked elsewhere, and Retrova says so.
+  Limits: Deep scan and Create image on an unlocked APFS (FileVault) volume still read the drive's encrypted bytes (only BitLocker and LUKS are decrypted for those); decryption is pure Python and slow (a few MB/s at best), so large drives take a long time; BitLocker startup-key (.bek) files and TPM-only drives aren't supported.
+
 ## Unreleased
 
 - **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).

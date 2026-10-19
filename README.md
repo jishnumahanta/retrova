@@ -65,6 +65,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 * **Unmountable Drive Recovery**: Direct block-level parser for damaged or unmountable partitions:
   * **APFS** (reads the newest usable checkpoint, compressed files and forks `zlib`/`lzvn`/`lzfse`, and tolerates a corrupted catalog tree; it does not browse APFS snapshots)
   * **NTFS**, **FAT12/16/32**, **exFAT**
+  * **Encrypted drives, when you have the key** (read-only): **BitLocker** (password or 48-digit recovery key; paused or already-decrypted drives need no key), **LUKS 1/2** (passphrase) and **FileVault / encrypted APFS volumes** (password or recovery key). The drive shows as "Locked", you enter the key, and the files inside open like any other drive. The key is kept in memory only and forgotten when you leave the drive. Startup disks of T2 / Apple silicon Macs are locked to that Mac's hardware and can't be opened elsewhere. Limits: Deep scan and Create image on an unlocked FileVault volume read the encrypted bytes (BitLocker and LUKS are decrypted); decryption is pure Python, so big drives are slow; BitLocker startup-key files and TPM-only drives aren't supported.
   * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
 * **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
 * **Sector-Safe Disk Imaging**: Creates raw bit-for-bit `.img` disk images with bad-sector skipping and sparse zero-block detection.

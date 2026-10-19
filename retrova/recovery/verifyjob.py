@@ -180,6 +180,7 @@ class VerifyJob(Job):
         super().__init__(params)
         self.spec = dict(spec)
         self.src_label = label
+        self.holds = [spec["unlock"]] if spec.get("unlock") else []
         self.paths, self.out_root = [norm_src(p) for p in paths], out_root
         self.patterns = [str(p) for p in patterns]
         self.excluded_paths = {norm_src(x).lower() for x in excluded_paths}

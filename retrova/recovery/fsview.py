@@ -23,6 +23,7 @@ import time
 
 from .partitions import FS_NAMES, SUPPORTED, UNSUPPORTED_WHY, detect_fs
 from .source import ReadOnlySource
+from .unlock import LOCKED, apfs_check, open_decrypted
 
 
 class FsError(Exception):
@@ -100,6 +101,14 @@ class PartialStream:
         return data
 
 
+def open_source(spec: dict):
+    """The bytes the file system lives in: the partition itself, or the decrypted contents of an
+    unlocked BitLocker / LUKS volume (spec["container"])."""
+    if spec.get("container") in LOCKED:
+        return open_decrypted(spec, spec["container"])
+    return ReadOnlySource(spec["source"], int(spec.get("offset") or 0))
+
+
 class FSView:
     fstype = ""
 
@@ -110,7 +119,7 @@ class FSView:
         self.offset = int(spec.get("offset") or 0)
         # not limited to the partition size: a damaged table may understate it, and the
         # filesystem knows its own extent
-        self.src = ReadOnlySource(spec["source"], self.offset)
+        self.src = open_source(spec)
         self.label = ""
         self.volumes: list[str] = []
         self.volume = ""
@@ -180,16 +189,15 @@ class ApfsView(FSView):
         except LookupError as ex:
             self.src.close()
             raise FsError(str(ex)) from ex
+        try:
+            if self.v.is_encrypted:
+                apfs_check(self.v, spec.get("unlock"))
+        except Exception:
+            self.src.close()
+            raise
         self.volumes = [v.name for v in vols]
         self.volume = self.label = self.v.name
         self.case_insensitive = bool(getattr(self.v, "is_case_insensitive", False))
-        try:
-            enc = self.v.is_encrypted
-        except Exception:
-            enc = False
-        if enc:
-            self.notes.append(f"The volume “{self.v.name}” is encrypted (FileVault). Retrova can't read encrypted "
-                              f"APFS volumes yet, so its files will show as unreadable.")
         self.block_size = self.cont.c.block_size
         self.checkpoint = getattr(self.cont.c.sb, "xid", None)
 
@@ -708,20 +716,26 @@ def available(fs: str) -> bool:
         return False
 
 
+def _detect(spec: dict, none_msg: str):
+    src = open_source(spec)
+    try:
+        det = detect_fs(src, 0, quick=True)
+    finally:
+        src.close()
+    if det is None:
+        raise FsError(none_msg)
+    return det["fs"], dict(spec, fs=det["fs"])
+
+
 def open_view(spec: dict, cache_blocks: int = 8192) -> FSView:
     """Open a read-only view of the filesystem described by spec
     {source, offset, size?, fs?, volume?}. fs is detected when missing."""
     fs = spec.get("fs")
     if not fs or fs == "auto":
-        src = ReadOnlySource(spec["source"], int(spec.get("offset") or 0))
-        try:
-            det = detect_fs(src, 0, quick=True)
-        finally:
-            src.close()
-        if det is None:
-            raise FsError("No filesystem was recognised at that position.")
-        fs = det["fs"]
-        spec = dict(spec, fs=fs)
+        fs, spec = _detect(spec, "No filesystem was recognised at that position.")
+    if fs in LOCKED:        # unlocking (or NeedsKey) first, then whatever file system is inside
+        fs, spec = _detect(dict(spec, container=fs), "The drive unlocked, but no file system was recognised inside "
+                                                      "it.")
     if fs not in SUPPORTED:
         raise FsError(UNSUPPORTED_WHY.get(fs, f"The {FS_NAMES.get(fs, fs)} filesystem isn't supported."))
     if not available(fs):

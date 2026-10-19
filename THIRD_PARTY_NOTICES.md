@@ -9,6 +9,8 @@ the full licence text of every Python package is in its `*.dist-info` folder ins
 the app, and Python's own licence is in `python/lib/python3.12/LICENSE.txt` (macOS)
 or `Lib/LICENSE.txt` / `LICENSE.txt` (Windows).
 
+Test fixtures `tests/unlock_images/*` are copies of dissect.fve / dissect.apfs published test images (AGPL-3.0-or-later, Fox-IT).
+
 ## All platforms
 
 | Component | Licence | Project |

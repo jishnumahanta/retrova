@@ -74,7 +74,10 @@ All responses JSON unless noted. (job) = returns a job status object.
 ### Recovery  [core]  (generalised rescue script)
 - `GET /api/recover/sources` -> `{sources: [{source, label, size, fs, detail, recommended: bool, needs_admin: bool}]}` —
   candidates: every partition/whole disk with a recognised filesystem; flag ones the OS can't mount or that look damaged.
-- `POST /api/recover/open {source, offset?: int, volume?: str}` -> `{sid, fs, label, volumes: [str], size, source, notes: [str]}`
+- `POST /api/recover/open {source, offset?: int, volume?: str, key?: str}` -> `{sid, fs, label, volumes: [str], size, source, notes: [str], encryption: {kind: bitlocker|luks|apfs, name, unlocked}|null}`;
+  a locked volume without `key` returns 200 `{needs_key: {kind, label, hint, volume, accepts: [password|recovery]}, source, offset, ...}` and no session; a wrong `key` is a 400 with a plain message (retry).
+  Only the key *derived* from `key` is kept, in memory, until the session closes and no job uses it. `POST /api/recover/close {sid}` closes the session and drops the key.
+  Image/Deep scan on an unlocked BitLocker/LUKS session read the decrypted bytes.
   source = raw device (`/dev/rdiskN`, `/dev/diskNsM`, `\\.\PhysicalDriveN`, `/dev/sdX`) or a disk-image file path.
   Auto-detects GPT/MBR partitions and filesystems: APFS (via legacy engine incl. all its patches), NTFS, FAT12/16/32,
   exFAT, ext2/3/4, XFS, Btrfs. Read-only always.

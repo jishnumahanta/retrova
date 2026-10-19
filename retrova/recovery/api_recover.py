@@ -13,10 +13,12 @@ from retrova.util import REAL_HOME, is_admin
 from .common import check_out_root, expand_out, is_device_path, norm_src
 from .drives import list_drives
 from .fsview import FsError, open_view
-from .partitions import FS_NAMES, SUPPORTED, UNSUPPORTED_WHY, best_part, describe_part, detect_fs, scan, \
+from .partitions import FS_NAMES, LOCKED_WHY, SUPPORTED, UNSUPPORTED_WHY, best_part, describe_part, detect_fs, scan, \
     container_format
 from .sessions import Session, add_session, close_session, get_session, source_exists
 from .source import ReadOnlySource, can_open, device_size
+from .unlock import KIND_NAMES, LOCKED, KeyRejected, NeedsKey, UnlockError, ensure_alive, make_key, open_decrypted, \
+    release
 
 NEEDS_ADMIN = ("Retrova needs administrator rights to read this drive directly. Use “Allow access” "
                "(you'll be asked for your password) and try again.")
@@ -31,6 +33,13 @@ def _session(sid):
     if s is None:
         raise ApiError("This drive isn't open any more - please open it again.", 404)
     return s
+
+
+def _alive(spec):
+    try:
+        ensure_alive(spec)
+    except UnlockError as ex:
+        raise ApiError(str(ex), 409)
 
 
 def _int(v, default=None):
@@ -73,7 +82,7 @@ def _scan(source):
 
 def _part_public(p):
     return {k: p.get(k) for k in ("index", "offset", "size", "type_name", "name", "fs", "fs_name", "label",
-                                  "supported", "why", "volumes", "encrypted", "damaged")}
+                                  "supported", "why", "volumes", "encrypted", "damaged", "locked")}
 
 
 # ====================================================================== sources
@@ -100,12 +109,13 @@ def _scan_with_timeout(dev, timeout):
 
 
 def _entry(source, offset, size, fs, label, disk, mount="", detail="", needs_admin=False, extra=None):
-    supported = fs in SUPPORTED
+    supported = fs in SUPPORTED or fs in LOCKED
     small = (size or 0) < 64 * 1024 * 1024 and fs in ("fat12", "fat16", "fat32")   # EFI-style system areas
     e = {"source": source, "offset": int(offset or 0), "size": size, "fs": fs, "fs_name": FS_NAMES.get(fs or "", "Unknown"),
          "label": label or "", "disk": disk.get("name") or disk.get("id"), "disk_id": disk.get("id"),
          "mount": mount or "", "needs_admin": bool(needs_admin), "supported": supported,
-         "removable": bool(disk.get("removable")), "health": (disk.get("health") or {}).get("state", "unknown")}
+         "removable": bool(disk.get("removable")), "health": (disk.get("health") or {}).get("state", "unknown"),
+         "locked": fs in LOCKED}
     bits = []
     if mount:
         bits.append(f"Opened by your computer at {mount} - you can also copy files from it normally.")
@@ -113,7 +123,9 @@ def _entry(source, offset, size, fs, label, disk, mount="", detail="", needs_adm
         bits.append("Your computer hasn't opened this one - Retrova can read it directly.")
     if detail:
         bits.append(detail)
-    if not supported and fs:
+    if fs in LOCKED:
+        bits.append(LOCKED_WHY[fs])
+    elif not supported and fs:
         bits.append(UNSUPPORTED_WHY.get(fs, ""))
     e["detail"] = " ".join(b for b in bits if b)
     e["recommended"] = bool(supported and not small and (not mount or (extra or {}).get("damaged")))
@@ -227,29 +239,69 @@ def api_open(q, body):
             if det is None:
                 raise ApiError(f"No filesystem was recognised at byte {offset:,}.", 422)
             part = dict(det, offset=offset, index=None, type_name="", name="",
-                        supported=det["fs"] in SUPPORTED, why=UNSUPPORTED_WHY.get(det["fs"]))
+                        supported=det["fs"] in SUPPORTED or det["fs"] in LOCKED,
+                        why=LOCKED_WHY.get(det["fs"]) or UNSUPPORTED_WHY.get(det["fs"]))
         if not part.get("supported"):
             raise ApiError(part.get("why") or "This partition can't be read.", 422)
     size = part.get("size") or None
     spec = {"source": source, "offset": int(part["offset"]), "size": size, "fs": part["fs"], "volume": volume}
     try:
-        view = open_view(spec, cache_blocks=16384)
-    except FsError as ex:
+        view = _open_unlocking(spec, body.get("key"))
+    except NeedsKey as nk:
+        return {"needs_key": nk.public(), "source": source, "offset": spec["offset"], "size": size,
+                "fs": part["fs"], "fs_name": FS_NAMES.get(part["fs"], part["fs"]),
+                "partitions": [_part_public(p) for p in parts]}
+    except KeyRejected as ex:
+        raise ApiError(str(ex), 400)
+    except (FsError, UnlockError) as ex:
         raise ApiError(str(ex), 422)
     except PermissionError:
         raise ApiError(NEEDS_ADMIN, 403)
     spec["volume"] = view.volume or None
-    notes += view.notes
+    notes += view.notes + _unlock_notes(spec, part)
     if part.get("damaged"):
         notes.append("Parts of this filesystem look damaged; some folders may be unreadable.")
     info = {"fs": view.fstype, "fs_name": view.fs_name, "label": view.label, "volumes": view.volumes,
             "volume": view.volume, "size": size, "source": source, "offset": spec["offset"], "notes": notes,
             "partitions": [_part_public(p) for p in parts], "is_image": not is_device_path(source),
             "read_only": True, "case_insensitive": view.case_insensitive,
-            "default_out": os.path.join(REAL_HOME, "Recovered")}
+            "default_out": os.path.join(REAL_HOME, "Recovered"), "encryption": _encryption(spec, part)}
     s = Session(spec, view, info)
     add_session(s)
     return dict(info, sid=s.sid)
+
+
+def _open_unlocking(spec, secret):
+    """open_view(spec); when the volume is locked and a key was typed, check it, keep only the key derived
+    from it in spec["unlock"], and open again. The typed text itself is dropped right here."""
+    try:
+        return open_view(spec, cache_blocks=16384)
+    except NeedsKey as nk:
+        if not secret:
+            raise
+        spec["unlock"] = make_key(dict(spec, volume=nk.volume or spec.get("volume")), nk.kind, str(secret))
+    try:
+        return open_view(spec, cache_blocks=16384)
+    except BaseException:
+        release(spec)
+        raise
+
+
+def _encryption(spec, part) -> dict | None:
+    """What the UI may know: that the drive was encrypted and whether Retrova needed a key. Never the key."""
+    key = spec.get("unlock")
+    kind = key.kind if key else part["fs"] if part["fs"] in LOCKED else None
+    return {"kind": kind, "name": KIND_NAMES[kind], "unlocked": bool(key)} if kind else None
+
+
+def _unlock_notes(spec, part) -> list:
+    enc = _encryption(spec, part)
+    if not enc:
+        return []
+    if enc["unlocked"]:
+        return [f"This {enc['name']} drive is unlocked with the key you entered. Retrova only reads it, and forgets "
+                f"the key when you leave this drive."]
+    return [f"This {enc['name']} drive needed no key (its protection is switched off or paused)."]
 
 
 @route("POST", "/api/recover/close")
@@ -391,6 +443,7 @@ def api_regen(q, body):
     from .regenjob import RegenJob
     s = _session(body.get("sid"))
     paths = _paths(body)
+    _alive(s.spec)
     return JOBS.start(RegenJob(s.spec, paths, params={"sid": s.sid, "paths": paths})).status()
 
 
@@ -449,6 +502,7 @@ def _out_dir(body, source):
 def api_copy(q, body):
     from .copyjob import CopyJob
     s = _session(body.get("sid"))
+    _alive(s.spec)
     paths = _paths(body)
     out = _out_dir(body, s.source)
     skipped = [dict(path=str(i.get("path", "")), what=str(i.get("what", "")), regen=str(i.get("regen", "")))
@@ -465,6 +519,17 @@ def api_copy(q, body):
     return JOBS.start(job).status()
 
 
+def _decrypted_size(spec) -> int:
+    try:
+        src = open_decrypted(spec, spec["fs"])
+    except UnlockError as ex:
+        raise ApiError(str(ex), 409)
+    try:
+        return src.size
+    finally:
+        src.close()
+
+
 @route("POST", "/api/recover/image")
 def api_image(q, body):
     from .imagejob import ImageJob, PROGRESS_SUFFIX
@@ -474,6 +539,10 @@ def api_image(q, body):
         source, offset = s.source, s.spec["offset"]
         total = s.spec.get("size") or max(0, device_size(source) - offset)
         label = s.info.get("label") or os.path.basename(source)
+        decrypt = s.spec if s.spec["fs"] in LOCKED else None        # image the unlocked contents, not the scrambled bytes
+        if decrypt:
+            _alive(decrypt)
+            total, offset = _decrypted_size(decrypt), 0
     else:
         source = _norm_source(body.get("source"))
         if not source_exists(source):
@@ -481,6 +550,7 @@ def api_image(q, body):
         offset = _int(body.get("offset"), 0)
         total = _int(body.get("size")) or max(0, device_size(source) - offset)
         label = os.path.basename(source.rstrip("/\\")) or source
+        decrypt = None
     ok, why = can_open(source)
     if not ok:
         raise ApiError(NEEDS_ADMIN if why == "admin" else f"Can't read {source}: {why}", 403 if why == "admin" else 400)
@@ -501,7 +571,7 @@ def api_image(q, body):
     reserve = max(0.5, _float(body.get("reserve_gb"), 15.0))
     job = ImageJob(source, offset, total, out, reserve, label,
                    params={"source": source, "offset": offset, "size": total, "out": out, "reserve_gb": reserve,
-                           "sid": sid})
+                           "sid": sid, "decrypted": bool(decrypt)}, decrypt=decrypt)
     return JOBS.start(job).status()
 
 
@@ -523,11 +593,13 @@ def api_verify(q, body):
         if cj.live():
             raise ApiError("Wait for the recovery to finish (or stop it) before verifying it.", 409)
         spec, label = cj.spec, cj.src_label
+        _alive(spec)
         paths, out = list(cj.paths), cj.out_root
         patterns, excl = list(cj.patterns), list(cj.excluded_paths)
         sid = None
     else:
         s = _session(body.get("sid"))
+        _alive(s.spec)
         spec, label, sid = s.spec, s.info.get("label") or os.path.basename(s.source), s.sid
         paths = _paths(body)
         out = _out_dir(body, s.source)
@@ -559,6 +631,7 @@ def api_repair(q, body):
     tasks, carry = v.repair_plan()
     if not tasks:
         raise ApiError("Nothing to repair.")
+    _alive(v.spec)
     job = VerifyJob(v.spec, v.src_label, v.paths, v.out_root, v.patterns, v.excluded_paths, v.show_hidden,
                     "full", _int(body.get("workers"), v.nworkers), False, repair_tasks=tasks, carry=carry,
                     params={"repair_of": v.id, "files": len(tasks), "out": v.out_root})
@@ -598,11 +671,16 @@ def api_carve(q, body):
         source = s.source
         base = s.spec["offset"]
         default_end = base + (s.spec.get("size") or max(0, device_size(source) - base))
+        decrypt = s.spec if s.spec["fs"] in LOCKED else None        # look inside the unlocked contents
+        if decrypt:
+            _alive(decrypt)
+            base, default_end = 0, _decrypted_size(decrypt)
     else:
         source = _norm_source(body.get("source"))
         if not source_exists(source):
             raise ApiError(f"Can't find {source} - is the drive still connected?", 404)
         base, default_end = 0, device_size(source)
+        decrypt = None
     ok, why = can_open(source)
     if not ok:
         raise ApiError(NEEDS_ADMIN if why == "admin" else f"Can't read {source}: {why}", 403 if why == "admin" else 400)
@@ -618,7 +696,7 @@ def api_carve(q, body):
     try:
         job = CarveJob(source, start, end, out, types, reserve, aligned=bool(body.get("aligned", False)),
                        params={"source": source, "start": start, "end": end, "out": out, "types": sorted(types),
-                               "sid": sid})
+                               "sid": sid, "decrypted": bool(decrypt)}, decrypt=decrypt)
     except OSError as ex:
         raise ApiError(f"Can't create the output folder {out}: {ex.strerror or ex}")
     return JOBS.start(job).status()

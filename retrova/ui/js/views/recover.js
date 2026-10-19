@@ -7,6 +7,7 @@ import { h, clear, append, bytes, joinPath } from '../util.js';
 import { icon } from '../components/icons.js';
 import { segmented, emptyState, popover } from '../components/controls.js';
 import { spinner } from '../components/ring.js';
+import { askForKey } from '../components/keysheet.js';
 import { pickFile } from '../components/filepicker.js';
 import { setToolbar, setContentMode, setToolbarCenter } from '../shell.js';
 import { renderFiles } from './recover-browse.js';
@@ -124,7 +125,9 @@ function sourceBar(S) {
   const src = S.source;
   const sess = S.session;
   const label = sess?.label || src?.label || src?.disk || (src ? 'Drive' : 'Recovery in progress');
-  const facts = [src?.disk && src.disk !== label ? src.disk : null, sess?.fs_name || src?.fs_name || null, (sess?.size || src?.size) ? bytes(sess?.size || src?.size) : null].filter(Boolean);
+  const enc = sess?.encryption;
+  const facts = [src?.disk && src.disk !== label ? src.disk : null, sess?.fs_name || src?.fs_name || null, (sess?.size || src?.size) ? bytes(sess?.size || src?.size) : null,
+    enc ? `${enc.name}${enc.unlocked ? ', unlocked' : ''}` : null].filter(Boolean);
   const vols = sess?.volumes || [];
   const notes = sess?.notes || [];
   const bar = h('div.rc-sourcebar',
@@ -135,6 +138,7 @@ function sourceBar(S) {
     vols.length > 1 ? h('button.btn.sm', { onclick: e => volumeMenu(e.currentTarget, S) }, h('span.faint', 'Volume'), sess.volume || sess.label, icon('chevronDown')) : null,
     notes.length ? h('button.btn.sm.ghost', { onclick: e => notesPop(e.currentTarget, notes) }, icon('info'), `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`) : null,
     h('span.grow'),
+    enc?.unlocked ? h('span.ro-badge', { title: 'Unlocked with the key you entered. Retrova forgets the key when you leave this drive.' }, icon('unlock'), 'Unlocked') : null,
     h('span.ro-badge', { title: 'Retrova opens this drive read-only. Nothing is ever written to it.' }, icon('lock'), 'Read-only'));
   return bar;
 }
@@ -148,6 +152,7 @@ function volumeMenu(anchor, S) {
 }
 
 export function backToSources(S) {
+  closeSession(S);
   S.source = null; S.session = null; S.openError = null; S.showRun = false;
   // let finished jobs go; quietly re-attach running ones (only one disk job can run at a time)
   S.copyJob = S.imageJob = S.carveJob = null;
@@ -221,7 +226,8 @@ function sourceCard(S, s, highlight) {
   const tags = [];
   if (s.recommended) tags.push(h('span.badge.ok', 'Suggested'));
   if (s.damaged) tags.push(h('span.badge.warn', 'Looks damaged'));
-  if (s.encrypted) tags.push(h('span.badge', 'Encrypted'));
+  if (s.locked) tags.push(h('span.badge.warn', icon('lock'), 'Locked'));
+  else if (s.encrypted) tags.push(h('span.badge', icon('lock'), 'Encrypted'));
   if (s.supported === false || !s.fs) tags.push(h('span.badge', 'Deep scan only'));
   const foot = s.needs_admin && !store.info.admin
     ? h('span.src-foot.warn-text', icon('lock'), 'Needs permission to read')
@@ -271,10 +277,17 @@ export async function openSource(S, s, { volume } = {}) {
   if (s.offset !== undefined && s.offset !== null && !volume) body.offset = s.offset;
   if (volume) body.volume = volume;
   try {
-    const r = await api.post('/api/recover/open', body);
-    resetBrowse(S);
-    S.session = r;
-    if (!S.out) S.out = r.default_out || store.info.default_out || joinPath(store.info.home, 'Recovered');
+    let r = await api.post('/api/recover/open', body);
+    if (r.needs_key) r = await unlockWithSheet(S, s, body, r);        // null if they cancel
+    if (r) {
+      closeSession(S);
+      resetBrowse(S);
+      S.session = r;
+      if (!S.out) S.out = r.default_out || store.info.default_out || joinPath(store.info.home, 'Recovered');
+    } else {
+      S.session = null;
+      S.openError = new Error('This drive is locked. Choose it again and enter its key to look inside.');
+    }
   } catch (e) {
     S.session = null;
     S.openError = e;
@@ -282,6 +295,22 @@ export async function openSource(S, s, { volume } = {}) {
   }
   S.opening = false;
   render();
+}
+
+/** The drive is locked: ask for the key and retry until it works or they give up. The key lives in the sheet only. */
+function unlockWithSheet(S, s, body, first) {
+  const nk = first.needs_key;
+  const partLabel = nk.volume || nk.label || s.label;
+  return askForKey({
+    kind: nk.kind, label: partLabel, driveName: partLabel ? `“${partLabel}”` : null, hint: nk.hint, accepts: nk.accepts,
+    attempt: key => api.post('/api/recover/open', { ...body, volume: nk.volume || body.volume, key }),
+  });
+}
+
+/** Tell the engine this drive is no longer open, so it forgets the key it was unlocked with. */
+function closeSession(S) {
+  const sid = S.session?.sid;
+  if (sid) api.post('/api/recover/close', { sid }).catch(() => {});
 }
 
 function resetBrowse(S) {

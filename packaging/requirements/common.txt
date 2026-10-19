@@ -16,3 +16,6 @@ dissect.fat
 dissect.extfs
 dissect.xfs
 dissect.btrfs
+dissect.fve
+asn1crypto
+pycryptodome
