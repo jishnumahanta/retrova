@@ -290,3 +290,46 @@ def test_map_text_is_ddrescue_format_and_rejects_foreign_sizes():
         RescueMap.from_text(text, 4096)
     with pytest.raises(ValueError):
         RescueMap.from_text(text, 16384)
+
+
+class FailingDevice(ReadOnlySource):
+    """Fails like a real device: the sector-aligned read it is handed fails if it covers the bad sector."""
+
+    bad = (1500 * KB + 3 * SECTOR, 1500 * KB + 4 * SECTOR)
+
+    def _raw(self, start, want):
+        if start < self.bad[1] and start + want > self.bad[0]:
+            raise OSError(5, "Input/output error")
+        return super()._raw(start, want)
+
+
+def test_scrape_isolates_one_sector_inside_a_4k_block(disk, tmp_path):
+    src, data = disk
+
+    class J(FaultyImageJob):
+        def _open_source(self):
+            return FailingDevice(self.source, self.offset, self.total, align=self.sector)
+
+    job = J(src, str(tmp_path / "m.img"), retries=1)
+    st = run_job(job)
+    assert job.sector == 512                       # image file: detected as 512
+    bad = [FailingDevice.bad]
+    assert st["state"] == "done" and st["bad_bytes"] == SECTOR
+    assert open(job.out_path, "rb").read() == expected(data, bad)    # the other 7 sectors of that 4 KB are in the image
+    assert bad_blocks(job.out_path + ".map") == bad
+
+
+def test_read_only_source_align_option(disk):
+    src, data = disk
+    calls = []
+
+    class Spy(ReadOnlySource):
+        def _raw(self, start, want):
+            calls.append((start, want))
+            return super()._raw(start, want)
+
+    s = Spy(src, align=512)
+    assert s.pread(1024 + 5, 100) == data[1029:1129] and calls == [(1024, 512)]
+    calls.clear()
+    s = Spy(src)                                   # default stays 4096-aligned
+    assert s.pread(1024 + 5, 100) == data[1029:1129] and calls == [(0, 4096)]
