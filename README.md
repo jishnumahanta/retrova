@@ -66,6 +66,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
   * **APFS** (reads the newest usable checkpoint, compressed files and forks `zlib`/`lzvn`/`lzfse`, and tolerates a corrupted catalog tree; it does not browse APFS snapshots)
   * **NTFS**, **FAT12/16/32**, **exFAT**
   * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
+* **Deleted-File Recovery With Names**: On **NTFS**, **FAT12/16/32** and **exFAT**, finds deleted files from the file system's own leftover records and brings them back with their original names and folders (files whose folder can't be traced go under "Lost folders"). Each is marked Good, Possibly overwritten or May be incomplete. FAT can't know if a file was fragmented, so it is read as one unbroken stretch. Not available for APFS, ext or other file systems, and on NTFS files that were compressed or encrypted, or whose details are spread over several records, aren't listed (Retrova says how many).
 * **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
 * **Sector-Safe Disk Imaging**: Creates raw bit-for-bit `.img` disk images with bad-sector skipping and sparse zero-block detection.
 

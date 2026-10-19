@@ -112,6 +112,19 @@ const VOLUME = D('', [
   D('Applications', [D('Logic Pro.app', blob(10, 400 * MB, 61, ['Contents'])), D('Visual Studio Code.app', blob(10, 40 * MB, 62, ['Contents']))]),
   D('Shared', [F('Shared notes.txt', 3 * KB, T0)]),
 ]);
+// files a deleted-file scan would find (NTFS / FAT / exFAT drives): original names and folders, with how likely the data is intact
+function X(name, size, mtime, recover, note = '') { return { ...F(name, size, mtime), deleted: true, recover, note }; }
+const SCAN_NOTE_FRAG = 'Found as one unbroken stretch of the disk. If the file was split into pieces, the end may be wrong.';
+const SCAN_NOTE_OVER = 'Some of the space this file used has been taken by other files since.';
+const DELETED_ROOT = 'Deleted files';
+const DELETED = D(DELETED_ROOT, [
+  D('Users', [D('sam', [
+    D('Documents', [X('Thesis final v6.docx', 3.9 * MB, T0 - 130 * DAY, 'good'), X('Old budget.xlsx', 96 * KB, T0 - 75 * DAY, 'good'), X('Contract draft.pdf', 610 * KB, T0 - 40 * DAY, 'overwritten', SCAN_NOTE_OVER)]),
+    D('Pictures', [D('Family', [X('IMG_2310.jpg', 3.1 * MB, T0 - 60 * DAY, 'good'), X('IMG_2311.jpg', 2.8 * MB, T0 - 60 * DAY, 'good'), X('IMG_2312.jpg', 3.3 * MB, T0 - 60 * DAY, 'incomplete', SCAN_NOTE_FRAG)]), X('Passport scan.jpg', 1.4 * MB, T0 - 300 * DAY, 'good')]),
+    D('Desktop', [X('Receipts.zip', 18 * MB, T0 - 20 * DAY, 'incomplete', SCAN_NOTE_FRAG)]),
+  ])]),
+  D('Lost folders', [D('Folder 1204', [X('draft-notes.txt', 8 * KB, T0 - 90 * DAY, 'good'), X('presentation.key', 24 * MB, T0 - 90 * DAY, 'overwritten', SCAN_NOTE_OVER)])]),
+]);
 function kids(node) {
   if (typeof node.children === 'function') node.children = node.children();
   return node.children || [];
@@ -119,6 +132,7 @@ function kids(node) {
 function findNode(path) {
   const parts = path.split('/').filter(Boolean);
   let n = VOLUME;
+  if (parts[0] === DELETED_ROOT) { n = DELETED; parts.shift(); }
   for (const p of parts) { n = kids(n).find(c => c.name === p); if (!n) return null; }
   return n;
 }
@@ -575,7 +589,7 @@ const routes = {
     const label = b.volume || (src ? src.label : (b.source || '').split(/[\\/]/).pop().replace(/\.[^.]+$/, ''));
     const apfs = !src || src.fs === 'apfs';
     const s = { sid, fs: apfs ? 'apfs' : src.fs, fs_name: apfs ? 'APFS' : src.fs_name, label, volumes: apfs ? ['MacStorage', 'MacStorage - Data'] : [label], volume: apfs ? label : null,
-      size: src ? src.size : 500 * GB, source: b.source, offset: src ? src.offset : 0, is_image: isImg, read_only: true, default_out: jp(HOME, 'Recovered'),
+      can_list_deleted: !apfs, size: src ? src.size : 500 * GB, source: b.source, offset: src ? src.offset : 0, is_image: isImg, read_only: true, default_out: jp(HOME, 'Recovered'),
       partitions: src ? SOURCES.filter(x => x.source === src.source).map((x, i) => ({ index: i, offset: x.offset, size: x.size, fs: x.fs, fs_name: x.fs_name, label: x.label, supported: !!x.fs })) : [],
       notes: apfs ? ['The newest checkpoint was damaged, so Retrova is using the one from 3 minutes earlier.', 'Parts of this filesystem look damaged; some folders may be unreadable.'] : [] };
     sessions.set(sid, s);
@@ -594,7 +608,17 @@ const routes = {
     const n = findNode(path);
     if (!n || n.kind !== 'dir') throw new ApiError(`Can't open ${path}`, 404);
     const base = path.replace(/\/$/, '');
-    return { path: path === '' ? '/' : path, entries: kids(n).map(c => ({ name: c.name, path: `${base}/${c.name}`, kind: c.kind, size: c.kind === 'file' ? c.size : 0, mtime: c.mtime || T0, ...(c.name === 'Envelope Index-wal' ? { error: 'Unreadable record' } : {}) })) };
+    const row = (c, at) => ({ name: c.name, path: `${at}/${c.name}`, kind: c.kind, size: c.kind === 'file' ? c.size : 0, mtime: c.mtime || T0, ...(c.name === 'Envelope Index-wal' ? { error: 'Unreadable record' } : {}),
+      ...(c.deleted ? { deleted: true, recover: c.recover, recover_note: c.note } : {}) });
+    const inDeleted = path === '/' + DELETED_ROOT || path.startsWith('/' + DELETED_ROOT + '/');
+    const entries = kids(n).map(c => row(c, base));
+    if (q.deleted && !inDeleted && sessions.get(q.sid)?.can_list_deleted) {
+      const live = new Set(entries.filter(e => e.kind === 'dir').map(e => e.name));
+      const twin = findNode('/' + DELETED_ROOT + (path === '/' ? '' : path));
+      if (twin) entries.push(...kids(twin).filter(c => c.kind !== 'dir' || !live.has(c.name)).map(c => ({ ...row(c, `/${DELETED_ROOT}${path === '/' ? '' : path}`), deleted: true })));
+      if (path === '/') entries.push({ name: DELETED_ROOT, path: '/' + DELETED_ROOT, kind: 'dir', size: 0, mtime: T0, deleted: true });
+    }
+    return { path: path === '' ? '/' : path, entries };
   },
   'POST /api/recover/size': (q, b) => {
     const out = {};

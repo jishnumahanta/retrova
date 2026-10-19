@@ -246,6 +246,7 @@ def api_open(q, body):
             "volume": view.volume, "size": size, "source": source, "offset": spec["offset"], "notes": notes,
             "partitions": [_part_public(p) for p in parts], "is_image": not is_device_path(source),
             "read_only": True, "case_insensitive": view.case_insensitive,
+            "can_list_deleted": bool(getattr(view, "supports_deleted", False)),
             "default_out": os.path.join(REAL_HOME, "Recovered")}
     s = Session(spec, view, info)
     add_session(s)
@@ -268,7 +269,7 @@ def api_session(q, body):
 def api_ls(q, body):
     s = _session(q.get("sid"))
     try:
-        return s.ls(q.get("path") or "/")
+        return s.ls(q.get("path") or "/", deleted=q.get("deleted") in ("1", "true"))
     except FileNotFoundError as ex:
         raise ApiError(str(ex), 404)
     except NotADirectoryError as ex:

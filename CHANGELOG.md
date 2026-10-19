@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- **New: recover deleted files with their original names and folders (NTFS, FAT12/16/32, exFAT).** In Browse files, turn on "Show deleted files": deleted files appear in the folders they were in, and a "Deleted files" folder at the top of the drive holds them all (files whose folder can't be traced are under "Lost folders"). Each shows how likely its data is intact: Good, Possibly overwritten (another file now uses some of its space) or May be incomplete (FAT cannot say whether a file was split into pieces; Retrova reads it as one unbroken stretch). You can preview, copy and Verify them like any other file. On FAT, the first letter of a name that has no long name is lost and shows as "_". Nothing is ever written to the drive. Deep scan is still there for files whose records are gone.
 ## Unreleased
 
 - **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).

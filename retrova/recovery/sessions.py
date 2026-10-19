@@ -139,22 +139,45 @@ class Session:
             self._preview = open_view(self.spec, cache_blocks=4096)
         return self._preview
 
-    def ls(self, path: str) -> dict:
+    def ls(self, path: str, deleted: bool = False) -> dict:
+        """One folder. With `deleted`, the deleted files that used to be in it are listed too (each with how
+        likely its data is intact), and the root also offers the "Deleted files" folder."""
         path = norm_src(path)
+        can = getattr(self.view, "supports_deleted", False)
+        in_tree = can and self.view.in_deleted_tree(path)
+        notes = []
+        if can and (deleted or in_tree):
+            notes = self.view.deleted_index().notes        # the first time this walks the disk: do it before the lock
         with self.lock:
             node = self.view.resolve(path)
             if node.kind != "dir":
                 raise NotADirectoryError(f"{path} is a file, not a folder.")
-            rows = []
-            for c in self.view.iterdir(node):
-                row = {"name": c.name, "path": join_src(path, c.name), "kind": c.kind,
-                       "size": c.size if c.kind == "file" else None,
-                       "mtime": c.mtime_ns // 1_000_000 if c.mtime_ns else None}
-                if c.error:
-                    row["error"] = c.error
-                rows.append(row)
+            rows = [self._row(path, c, in_tree) for c in self.view.iterdir(node)]
+            if can and deleted and not in_tree:
+                live = {r["name"].casefold() for r in rows if r["kind"] == "dir"}
+                vbase = "/" + self.view.deleted_root + ("" if path == "/" else path)
+                rows += [self._row(vbase, c, True) for c in self.view.deleted_entries_in(path)
+                         if c.kind != "dir" or c.name.casefold() not in live]
+                if path == "/":
+                    rows.append(self._row("/", self.view.root_node(), True))
         rows.sort(key=lambda r: (r["kind"] != "dir", r["name"].lower()))
-        return {"path": path, "entries": rows}
+        out = {"path": path, "entries": rows}
+        if notes:
+            out["deleted_notes"] = list(notes)
+        return out
+
+    @staticmethod
+    def _row(parent, c, deleted):
+        row = {"name": c.name, "path": join_src(parent, c.name), "kind": c.kind,
+               "size": c.size if c.kind == "file" else None,
+               "mtime": c.mtime_ns // 1_000_000 if c.mtime_ns else None}
+        if c.error:
+            row["error"] = c.error
+        if deleted:
+            row["deleted"] = True
+        if c.rec:
+            row["recover"], row["recover_note"] = c.rec
+        return row
 
     def close(self):
         self.sizes.close()
