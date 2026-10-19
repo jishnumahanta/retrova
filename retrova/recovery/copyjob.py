@@ -303,8 +303,18 @@ class CopyJob(Job):
             return
         if os.path.lexists(dp):
             return
+        is_dir = False
+        if os.name == "nt":
+            # Windows needs to know a link points at a folder, and wants backslashes in relative targets
+            if not target.startswith("/"):
+                try:
+                    import posixpath
+                    is_dir = view.resolve(posixpath.normpath(posixpath.join(posixpath.dirname(sp), target))).kind == "dir"
+                except Exception:
+                    is_dir = False
+                target = target.replace("/", "\\")
         try:
-            os.symlink(target, dp)
+            os.symlink(target, dp, target_is_directory=is_dir)
             give_to_user(dp)
         except (OSError, NotImplementedError) as ex:
             # e.g. Windows without the symlink privilege: not worth failing the recovery for
