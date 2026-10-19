@@ -79,6 +79,10 @@ All responses JSON unless noted. (job) = returns a job status object.
   Auto-detects GPT/MBR partitions and filesystems: APFS (via legacy engine incl. all its patches), NTFS, FAT12/16/32,
   exFAT, ext2/3/4, XFS, Btrfs. Read-only always.
 - `GET /api/recover/ls?sid=&path=/` -> `{path, entries: [{name, path, kind: dir|file|link|other, size, mtime (ms), error?}]}`
+  Add `&deleted=1` (NTFS, FAT, exFAT; the open reply has `can_list_deleted`) to also list deleted files: each such row has
+  `deleted: true`, files carry `recover: good|overwritten|incomplete` and `recover_note`, its `path` is under `/Deleted files/...`
+  (the same path works for preview, size, copy and verify), the root gets a `Deleted files` folder, and the reply may carry
+  `deleted_notes: [str]`. `/Deleted files/...` can also be browsed directly without the flag.
 - `GET /api/recover/preview?sid=&path=` -> raw file bytes with Range support (images, video, pdf, text).
 - `POST /api/recover/size {sid, paths: [], patterns: []}` -> `{sizes: {path: {state: queued|running|done|error, bytes, files, errors}}}`
   non-blocking; queues unknown paths and returns what is known; the UI calls again to poll.

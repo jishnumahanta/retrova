@@ -30,13 +30,14 @@ class FsError(Exception):
 
 
 class Node:
-    __slots__ = ("name", "kind", "size", "mtime_ns", "atime_ns", "mode", "handle", "obj", "error")
+    __slots__ = ("name", "kind", "size", "mtime_ns", "atime_ns", "mode", "handle", "obj", "error", "rec")
 
     def __init__(self, name, kind, size=0, mtime_ns=None, atime_ns=None, mode=None, handle=None, obj=None,
-                 error=None):
+                 error=None, rec=None):
         self.name, self.kind, self.size = name, kind, int(size or 0)
         self.mtime_ns, self.atime_ns, self.mode = mtime_ns, atime_ns, mode
         self.handle, self.obj, self.error = handle, obj, error
+        self.rec = rec          # deleted files only: (how likely the data is intact, a note)
 
     def __repr__(self):
         return f"<Node {self.name!r} {self.kind} {self.size}>"
@@ -148,6 +149,13 @@ class FSView:
 
     def readlink(self, handle) -> str:
         raise FsError("Links aren't supported on this filesystem.")
+
+    def scan_deleted(self, notes: list):
+        """Deleted files found in the filesystem's own records (see undelete.py)."""
+        raise NotImplementedError
+
+    def open_deleted(self, handle):
+        raise NotImplementedError
 
     def close(self):
         self.src.close()
@@ -331,6 +339,14 @@ class NtfsView(FSView):
                 return EmptyStream(b"")
             raise
 
+    def scan_deleted(self, notes):
+        from .undelete_ntfs import scan
+        return scan(self, notes)
+
+    def open_deleted(self, handle):
+        from .undelete_ntfs import open_deleted
+        return open_deleted(self, handle)
+
     def readlink(self, handle):
         from dissect.ntfs.c_ntfs import ATTRIBUTE_TYPE_CODE as A
         rec = self.fs.mft.get(int(handle))
@@ -513,6 +529,15 @@ class FatView(FSView):
                              problem)
 
 
+    def scan_deleted(self, notes):
+        from .undelete_fat import scan_fat
+        return scan_fat(self, notes)
+
+    def open_deleted(self, handle):
+        from .undelete_fat import open_deleted_fat
+        return open_deleted_fat(self, handle)
+
+
 # ====================================================================== exFAT
 class ExfatView(FSView):
     fstype = "exfat"
@@ -557,6 +582,15 @@ class ExfatView(FSView):
             avail = min(size, sum(n for _, n in runs) * self.fs.cluster_size)
             return PartialStream(ClusterStream(self.fs, runs, avail, min(valid, avail)), avail, size,
                                  f"{ex} - only the first {avail:,} of {size:,} bytes can be found")
+
+
+    def scan_deleted(self, notes):
+        from .undelete_fat import scan_exfat
+        return scan_exfat(self, notes)
+
+    def open_deleted(self, handle):
+        from .undelete_fat import open_deleted_exfat
+        return open_deleted_exfat(self, handle)
 
 
 # ====================================================================== ext2/3/4, XFS (inode based)
@@ -691,6 +725,7 @@ class BtrfsView(FSView):
         return self._inode(handle).link
 
 
+DELETED_FS = ("ntfs", "fat12", "fat16", "fat32", "exfat")      # where deleted files can be listed
 VIEWS = {"apfs": ApfsView, "ntfs": NtfsView, "fat12": FatView, "fat16": FatView, "fat32": FatView,
          "exfat": ExfatView, "ext2": ExtView, "ext3": ExtView, "ext4": ExtView, "xfs": XfsView,
          "btrfs": BtrfsView}
@@ -708,9 +743,10 @@ def available(fs: str) -> bool:
         return False
 
 
-def open_view(spec: dict, cache_blocks: int = 8192) -> FSView:
+def open_view(spec: dict, cache_blocks: int = 8192, overlay: bool = True) -> FSView:
     """Open a read-only view of the filesystem described by spec
-    {source, offset, size?, fs?, volume?}. fs is detected when missing."""
+    {source, offset, size?, fs?, volume?}. fs is detected when missing. On NTFS, FAT and exFAT the
+    view also serves the "/Deleted files" folder (overlay=False gives the plain view)."""
     fs = spec.get("fs")
     if not fs or fs == "auto":
         src = ReadOnlySource(spec["source"], int(spec.get("offset") or 0))
@@ -729,4 +765,8 @@ def open_view(spec: dict, cache_blocks: int = 8192) -> FSView:
     cls = VIEWS[fs]
     if cls is ApfsView:
         return cls(spec, cache_blocks=cache_blocks)
-    return cls(spec)
+    view = cls(spec)
+    if overlay and fs in DELETED_FS:
+        from .undelete import WithDeleted
+        return WithDeleted(view)
+    return view

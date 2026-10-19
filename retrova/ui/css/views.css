@@ -133,6 +133,9 @@
 .browser { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .browser-bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px 8px 8px; border-bottom: 1px solid var(--line); min-width: 0; }
 .browser-bar .switch { margin: 0 6px; white-space: nowrap; }
+.deleted-hint { display: flex; gap: 8px; align-items: flex-start; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--warn-soft); color: var(--text-2); font-size: var(--fs-sm); line-height: 1.4; }
+.deleted-hint[hidden] { display: none; }
+.deleted-hint svg { flex-shrink: 0; margin-top: 2px; color: var(--warn); }
 .browser-status { flex-shrink: 0; padding: 7px 14px; border-top: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-3); min-height: 32px; }
 .rc-cols { grid-template-columns: 16px minmax(0, 1fr) 96px 132px 36px; }
 @media (max-width: 1099px) { .rc-cols { grid-template-columns: 16px minmax(0, 1fr) 84px 0 32px; } .rc-cols > :nth-child(4) { display: none; } }
