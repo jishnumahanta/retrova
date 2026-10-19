@@ -499,9 +499,12 @@ def api_image(q, body):
     if os.path.exists(out) and not os.path.exists(out + PROGRESS_SUFFIX):
         raise ApiError(f"{out} already exists. Choose another file name - nothing is overwritten.", 409)
     reserve = max(0.5, _float(body.get("reserve_gb"), 15.0))
+    retries = min(10, max(0, _int(body.get("retries"), 1)))
+    reverse = bool(body.get("reverse"))
     job = ImageJob(source, offset, total, out, reserve, label,
                    params={"source": source, "offset": offset, "size": total, "out": out, "reserve_gb": reserve,
-                           "sid": sid})
+                           "sid": sid, "retries": retries, "reverse": reverse},
+                   retries=retries, reverse=reverse)
     return JOBS.start(job).status()
 
 

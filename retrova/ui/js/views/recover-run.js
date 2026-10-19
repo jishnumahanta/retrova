@@ -109,6 +109,8 @@ export function renderImage(body, S) {
   if (!S.imageOut) S.imageOut = S.out || store.info.default_out || joinPath(store.info.home, 'Recovered');
   const free = h('span.hint');
   const reserveIn = h('input.field.sm', { type: 'number', min: '1', value: String(S.reserve), style: 'width:80px', 'aria-label': 'Keep free, in gigabytes', oninput: () => { S.reserve = Number(reserveIn.value) || 15; } });
+  if (S.imageRetries === undefined) S.imageRetries = 1;
+  const retriesIn = h('input.field.sm', { type: 'number', min: '0', max: '10', value: String(S.imageRetries), style: 'width:80px', 'aria-label': 'Extra tries for unreadable spots', oninput: () => { S.imageRetries = Math.min(10, Math.max(0, Math.floor(Number(retriesIn.value)) || 0)); } });
   const destBtn = h('button.dest', { type: 'button', onclick: async () => {
     const p = await pickFolder({ title: 'Where should the image file go?', start: S.imageOut, confirmLabel: 'Save here' });
     if (p) { S.imageOut = p; renderAll(); }
@@ -117,7 +119,7 @@ export function renderImage(body, S) {
     clear(free, `${bytes(r.free)} free there.`, size && r.free < size ? h('span.warn-text', ' The image may not fit, but empty areas are skipped, so it often takes much less.') : ' Empty areas are skipped, so the file usually takes less space than the drive.');
   }).catch(() => {});
   const start = async () => {
-    const b = { out: S.imageOut.replace(/[\\/]*$/, S.imageOut.includes('\\') ? '\\' : '/'), reserve_gb: S.reserve };
+    const b = { out: S.imageOut.replace(/[\\/]*$/, S.imageOut.includes('\\') ? '\\' : '/'), reserve_gb: S.reserve, retries: S.imageRetries };
     if (S.session) b.sid = S.session.sid; else Object.assign(b, { source: src.source, offset: src.offset || 0, size: src.size || undefined });
     try {
       const st = await api.post('/api/recover/image', b);
@@ -128,13 +130,14 @@ export function renderImage(body, S) {
     h('section.panel.setup-card',
       h('div.setup-art', icon('disc')),
       h('h2.setup-title', `Copy all of ${label} into one image file`),
-      h('p.setup-lead', "Retrova copies every block, in order. It's the fastest way to save everything, nothing can be missed, and you can take files out of the image later, even with the drive unplugged."),
+      h('p.setup-lead', "Retrova saves the healthy parts first, then works carefully on any damaged spots, so a failing drive is stressed as little as possible. You can take files out of the image later, even with the drive unplugged."),
       h('div.setup-rows',
         h('div.setup-row', h('span.label', 'Save the image in'), destBtn, free),
         h('div.setup-row.inline', h('span.label', 'Size of the drive'), h('b.num', { text: size ? bytes(size) : 'Unknown' })),
-        h('div.setup-row.inline', h('span.label', 'Keep free on the destination'), h('div.row', reserveIn, h('span.faint', 'GB')))),
+        h('div.setup-row.inline', h('span.label', 'Keep free on the destination'), h('div.row', reserveIn, h('span.faint', 'GB'))),
+        h('div.setup-row.inline', h('span.label', 'Extra tries on unreadable spots'), h('div.row', retriesIn, h('span.faint', 'passes at the end')))),
       h('div.setup-foot', h('button.btn.primary.lg', { onclick: start }, icon('disc'), 'Create image'),
-        h('p.safe-line', icon('shieldLock'), `${label} is only read. Unreadable spots are retried, then filled with zeros and listed.`))),
+        h('p.safe-line', icon('shieldLock'), `${label} is only read. Spots that can't be read are retried, then left as zeros in the image and listed. A progress file lets you stop and carry on later.`))),
     h('aside.setup-aside',
       h('h4', 'When to choose this'),
       h('ul',
@@ -143,30 +146,40 @@ export function renderImage(body, S) {
         h('li', 'You need to give the drive back or send it away.')))));
 }
 
+const IMAGE_STEP = {
+  copy: ['Copying the healthy parts first', 'Saving everything the drive reads easily. Spots that fail are skipped for now and come back later, so the drive is not pushed into them early.'],
+  trim: ['Checking the edges of damaged areas', 'Reading inward from both sides of each damaged area in small steps, to save as much as possible around the damage.'],
+  scrape: ['Reading damaged areas sector by sector', 'Going through what is left one small sector at a time. This is slow on purpose.'],
+  retry: ['Trying the unreadable sectors again', 'A last try at the sectors that failed. Some drives give them up on a second go.'],
+};
+
 function imageRun(body, S) {
   const panel = jobPanel({
     describe: st => {
-      const bd = stat(st, 'bytes_done', 'pos'), bt = stat(st, 'bytes_total', 'total');
-      const bad = st.bad ?? stat(st, 'failed') ?? 0, zero = stat(st, 'zero', 'zero_bytes') ?? st.zero;
+      const bd = stat(st, 'rescued', 'bytes_done', 'pos'), bt = stat(st, 'bytes_total', 'total');
+      const bad = stat(st, 'bad_bytes') || 0, areas = stat(st, 'error_areas', 'failed') || 0, zero = stat(st, 'zero', 'zero_bytes') ?? st.zero;
       const out = st.out || st.params?.out;
-      let headline = 'Copying the whole drive into an image';
+      const [step, stepText] = IMAGE_STEP[st.phase_id] || ['Copying the whole drive into an image', ''];
+      let headline = step;
       if (st.state === 'paused') headline = 'Image paused';
-      if (st.state === 'done') headline = 'Image finished';
+      if (st.state === 'stopping') headline = 'Stopping…';
+      if (st.state === 'done') headline = bad ? 'Image finished, with some unreadable spots' : 'Image finished';
       if (st.state === 'stopped') headline = 'Image stopped';
       if (st.state === 'error') headline = "The image couldn't be finished";
       const sub = st.state === 'done'
-        ? [`Saved as ${out}.`, bad ? ` ${plural(bad, 'unreadable spot')} were filled with zeros and listed in the log.` : ' Every block was read.', ' Open it in Retrova to take files out.']
-        : st.state === 'stopped' ? (st.stop_reason || 'Start again and Retrova continues where it stopped.')
+        ? [`Saved as ${out}.`, bad ? ` ${bytes(bad)} could not be read and ${bad === 1 ? 'is' : 'are'} zeros in the image; they are listed in the log next to it. Retrova also left a .map file, so GNU ddrescue can keep trying.` : ' Every block was read.', st.sha256 ? ' A SHA-256 fingerprint is saved next to it.' : '', ' Open it in Retrova to take files out.']
+        : st.state === 'stopped' ? (st.message || st.stop_reason || 'Start again and Retrova continues where it stopped.')
         : st.state === 'error' ? (st.error || st.stop_reason)
-        : [`Writing to ${out}.`, h('br'), h('span.safe-line', icon('shieldLock'), 'The drive is only read.')];
+        : [stepText, h('br'), `Writing to ${out}.`, h('br'), h('span.safe-line', icon('shieldLock'), 'The drive is only read. Pressing Stop keeps everything saved so far.')];
       return {
         headline, sub,
         stats: [
-          { k: 'Copied', v: bt ? `${bytes(bd)} of ${bytes(bt)}` : bytes(bd) },
+          { k: 'Saved', v: bt ? `${bytes(bd)} of ${bytes(bt)}` : bytes(bd) },
           isLive(st) ? { k: 'Speed', v: speed(stat(st, 'speed')) } : null,
-          isLive(st) ? { k: 'Time left', v: etaText(stat(st, 'eta')) } : null,
+          isLive(st) && st.phase_id === 'copy' ? { k: 'Time left', v: etaText(stat(st, 'eta')) } : null,
           { k: 'Empty areas skipped', v: bytes(zero || 0) },
-          { k: 'Unreadable spots', v: num(bad), tone: bad ? 'warn' : '' },
+          { k: 'Not readable so far', v: bytes(bad), tone: bad ? 'warn' : '' },
+          { k: 'Damaged areas', v: num(areas), tone: areas ? 'warn' : '' },
         ],
       };
     },
