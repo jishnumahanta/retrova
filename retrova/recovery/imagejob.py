@@ -26,6 +26,7 @@ from retrova.util import IS_WIN, free_bytes, run as run_cmd
 from .common import give_to_user, human, long_path, makedirs_owned_safe
 from .rescuemap import BAD, FINISHED, NON_SCRAPED, NON_TRIED, NON_TRIMMED, RescueMap
 from .source import ReadOnlySource, logical_sector_size
+from .unlock import open_decrypted
 
 PROGRESS_SUFFIX = ".retrova-progress"
 MAP_SUFFIX = ".map"
@@ -47,8 +48,12 @@ class ImageJob(Job):
     SAVE_EVERY = 2.0                # seconds between map saves
 
     def __init__(self, source, offset, total, out_path, reserve_gb, label="", params=None,
-                 retries=1, reverse=False, sector=None):
+                 retries=1, reverse=False, sector=None, decrypt=None):
+        """decrypt: the session spec of an unlocked BitLocker / LUKS volume - the image then holds the
+        decrypted volume (and `total` is its decrypted size) instead of the scrambled bytes on the drive."""
         super().__init__(params)
+        self.decrypt = dict(decrypt) if decrypt else None
+        self.holds = [decrypt["unlock"]] if decrypt and decrypt.get("unlock") else []
         self.source, self.offset, self.total = source, int(offset or 0), int(total)
         self.out_path = out_path
         self.io_path = long_path(out_path)
@@ -338,8 +343,8 @@ class ImageJob(Job):
 
     def run(self):
         if self.sector is None:
-            self.sector = logical_sector_size(self.source)
-        src = self._open_source()
+            self.sector = 512 if self.decrypt else logical_sector_size(self.source)
+        src = open_decrypted(self.decrypt, self.decrypt["fs"]) if self.decrypt else self._open_source()
         out = None
         try:
             self.phase = "Preparing…"

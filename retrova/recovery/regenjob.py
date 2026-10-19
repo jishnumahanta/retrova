@@ -17,6 +17,7 @@ class RegenJob(Job):
     def __init__(self, spec, paths, params=None):
         super().__init__(params)
         self.spec = dict(spec)
+        self.holds = [spec["unlock"]] if spec.get("unlock") else []
         self.paths = [norm_src(p) for p in paths]
         self.found: list = []
         self.dirs = 0

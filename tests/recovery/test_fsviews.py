@@ -7,6 +7,7 @@ import pytest
 from conftest import APFS_DIR, expected_for, need
 
 from retrova.recovery.fsview import FsError, open_view
+from retrova.recovery.unlock import UnlockError
 
 FS_KEYS = ["fat32", "fat16", "fat12", "ext4", "xfs", "btrfs", "ntfs", "exfat"]
 
@@ -194,8 +195,13 @@ def test_apfs_parallel_views_are_independent():
 
 def test_unsupported_fs_message(tmp_path):
     h = bytearray(8192)
-    h[3:11] = b"-FVE-FS-"
+    h[3:11] = b"ReFS\0\0\0\0"
+    p = tmp_path / "refs.img"
+    p.write_bytes(bytes(h))
+    with pytest.raises(FsError, match="ReFS"):
+        open_view({"source": str(p), "offset": 0})
+    h[3:11] = b"-FVE-FS-"                       # BitLocker: not "unsupported" any more, but this header is junk
     p = tmp_path / "bitlocker.img"
     p.write_bytes(bytes(h))
-    with pytest.raises(FsError, match="BitLocker"):
+    with pytest.raises(UnlockError, match="BitLocker"):
         open_view({"source": str(p), "offset": 0})

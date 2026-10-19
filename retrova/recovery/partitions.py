@@ -9,6 +9,7 @@ import zlib
 
 from .common import human
 from .source import ReadOnlySource, device_size
+from .unlock import LOCKED
 
 SUPPORTED = ("apfs", "ntfs", "fat12", "fat16", "fat32", "exfat", "ext2", "ext3", "ext4", "xfs", "btrfs", "hfs+")
 FS_NAMES = {
@@ -18,14 +19,16 @@ FS_NAMES = {
     "lvm": "Linux LVM", "iso9660": "CD/DVD image (ISO 9660)", "corestorage": "Core Storage",
 }
 UNSUPPORTED_WHY = {
-    "bitlocker": "This partition is encrypted with BitLocker. Unlock it in Windows first, or use Deep scan "
-                 "(which can only find files if the drive was never encrypted).",
-    "luks": "This partition is encrypted (LUKS). Retrova can't read encrypted Linux partitions.",
     "refs": "ReFS isn't supported yet - use Deep scan instead.",
     "swap": "This is Linux swap space - it holds no files.",
     "lvm": "This is a Linux LVM volume. Retrova can't read LVM yet - use Deep scan instead.",
     "iso9660": "This is a CD/DVD image. Open it with your operating system instead.",
     "corestorage": "This is a Core Storage (old FileVault/Fusion) volume, which isn't supported yet.",
+}
+
+LOCKED_WHY = {
+    "bitlocker": "Locked with BitLocker. Retrova can open it if you have its password or 48-digit recovery key.",
+    "luks": "Locked with LUKS (Linux disk encryption). Retrova can open it if you have its passphrase.",
 }
 
 GPT_TYPES = {
@@ -402,8 +405,11 @@ def scan(path: str, size: int | None = None) -> dict:
                     p.update({k: v for k, v in det.items() if k != "size"})
                 else:
                     p.update({"fs": None, "label": "", "detail": ""})
-            p["supported"] = p.get("fs") in SUPPORTED
-            if p.get("fs") and not p["supported"]:
+            p["supported"] = p.get("fs") in SUPPORTED or p.get("fs") in LOCKED
+            if p.get("fs") in LOCKED:
+                p["locked"] = True
+                p["why"] = LOCKED_WHY[p["fs"]]
+            elif p.get("fs") and not p["supported"]:
                 p["why"] = UNSUPPORTED_WHY.get(p["fs"], "This filesystem isn't supported.")
             elif not p.get("fs"):
                 p["why"] = _unknown_why(p)
@@ -439,7 +445,7 @@ def best_part(parts: list) -> dict | None:
     if not cands:
         return None
     small = {"Microsoft reserved", "EFI system", "Windows recovery", "Apple Boot"}
-    return sorted(cands, key=lambda p: (p.get("type_name") in small, p.get("fs") != "apfs",
+    return sorted(cands, key=lambda p: (p.get("type_name") in small, bool(p.get("locked")), p.get("fs") != "apfs",
                                         -(p.get("size") or 0)))[0]
 
 

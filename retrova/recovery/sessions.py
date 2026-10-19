@@ -11,6 +11,7 @@ import uuid
 
 from .common import excluded, is_device_path, join_src, norm_src
 from .fsview import open_view
+from .unlock import release
 
 MAX_SESSIONS = 8
 
@@ -124,6 +125,7 @@ class Session:
         self.sizes = SizeService(spec)
         self.info = info
         self.used = time.time()
+        self.closed = False
 
     @property
     def source(self):
@@ -180,6 +182,9 @@ class Session:
         return row
 
     def close(self):
+        if self.closed:
+            return
+        self.closed = True
         self.sizes.close()
         with self.lock:
             try:
@@ -193,6 +198,7 @@ class Session:
                 except Exception:
                     pass
                 self._preview = None
+        release(self.spec)      # an unlock key is forgotten once no running job needs it
 
 
 SESSIONS: dict[str, Session] = {}
