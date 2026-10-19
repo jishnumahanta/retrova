@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jishnumahanta/retrova/releases/tag/v1.0.2"><img src="https://img.shields.io/badge/Release-v1.0.2-2BD9A0?style=flat-square" alt="Release v1.0.2" /></a>
+  <a href="https://github.com/jishnumahanta/retrova/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/Release-v1.1.0-2BD9A0?style=flat-square" alt="Release v1.1.0" /></a>
   <a href="#downloads"><img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blue?style=flat-square" alt="Platform" /></a>
   <img src="https://img.shields.io/badge/Offline-100%25%20Local-17A877?style=flat-square" alt="100% Local" />
   <img src="https://img.shields.io/badge/Source%20Drives-Strictly%20Read--Only-success?style=flat-square" alt="Read Only" />
@@ -37,16 +37,16 @@
 
 ---
 
-## ⬇️ Downloads (v1.0.2)
+## ⬇️ Downloads (v1.1.0)
 
 | Platform | Download | Architecture | Size |
 | :--- | :--- | :--- | :--- |
-| **macOS** | [**`Retrova-1.0.2-mac-arm64.dmg`**](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-mac-arm64.dmg) | Apple Silicon (M1, M2, M3, M4+) | 18 MB |
-| **macOS** | [**`Retrova-1.0.2-mac-x64.dmg`**](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-mac-x64.dmg) | Intel 64-bit | 18 MB |
-| **Windows** | [**`Retrova-1.0.2-win-x64-Setup.exe`**](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-win-x64-Setup.exe) | Windows 10 & 11 (Installer) | 14 MB |
-| **Windows** | [**`Retrova-1.0.2-win-x64-portable.zip`**](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-win-x64-portable.zip) | Windows 10 & 11 (Portable, no install) | 24 MB |
+| **macOS** | [**`Retrova-1.1.0-mac-arm64.dmg`**](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-mac-arm64.dmg) | Apple Silicon (M1, M2, M3, M4+) | 18 MB |
+| **macOS** | [**`Retrova-1.1.0-mac-x64.dmg`**](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-mac-x64.dmg) | Intel 64-bit | 18 MB |
+| **Windows** | [**`Retrova-1.1.0-win-x64-Setup.exe`**](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-win-x64-Setup.exe) | Windows 10 & 11 (Installer) | 14 MB |
+| **Windows** | [**`Retrova-1.1.0-win-x64-portable.zip`**](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-win-x64-portable.zip) | Windows 10 & 11 (Portable, no install) | 24 MB |
 
-Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/SHA256SUMS) to verify download integrity.
+Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/SHA256SUMS) to verify download integrity.
 
 ---
 
@@ -87,7 +87,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 ## 🚀 Installation & First Launch
 
 ### macOS (Apple Silicon & Intel)
-1. Download either [`Retrova-1.0.2-mac-arm64.dmg`](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-mac-arm64.dmg) (Apple Silicon) or [`Retrova-1.0.2-mac-x64.dmg`](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-mac-x64.dmg) (Intel).
+1. Download either [`Retrova-1.1.0-mac-arm64.dmg`](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-mac-arm64.dmg) (Apple Silicon) or [`Retrova-1.1.0-mac-x64.dmg`](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-mac-x64.dmg) (Intel).
 2. Open the DMG and drag **Retrova.app** into `/Applications`.
 3. Because Retrova is independently ad-hoc signed, macOS Gatekeeper may show a notice on first launch:
    * Double-click **Retrova** in Applications, then click **Done**.
@@ -96,7 +96,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 4. *(Recommended for raw disk recovery)*: In **System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Full Disk Access**, enable Retrova to allow reading unmountable raw block devices (`/dev/rdisk*`).
 
 ### Windows 10 & 11
-1. Download [`Retrova-1.0.2-win-x64-Setup.exe`](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/Retrova-1.0.2-win-x64-Setup.exe) (or the portable zip).
+1. Download [`Retrova-1.1.0-win-x64-Setup.exe`](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/Retrova-1.1.0-win-x64-Setup.exe) (or the portable zip).
 2. Run the installer.
 3. If Windows SmartScreen displays a blue protection banner:
    * Click **More info**.
@@ -110,20 +110,20 @@ To verify that your downloaded file matches the official cryptographic release:
 
 ### On macOS / Linux:
 ```bash
-shasum -a 256 Retrova-1.0.2-mac-arm64.dmg
+shasum -a 256 Retrova-1.1.0-mac-arm64.dmg
 ```
 
 ### On Windows (PowerShell):
 ```powershell
-Get-FileHash Retrova-1.0.2-win-x64-Setup.exe -Algorithm SHA256
+Get-FileHash Retrova-1.1.0-win-x64-Setup.exe -Algorithm SHA256
 ```
 
-Compare the output against the values in [`SHA256SUMS`](https://github.com/jishnumahanta/retrova/releases/download/v1.0.2/SHA256SUMS):
+Compare the output against the values in [`SHA256SUMS`](https://github.com/jishnumahanta/retrova/releases/download/v1.1.0/SHA256SUMS):
 ```text
-8655d5be8e97217e86e4265136257a9574c3728c91f0666a7659e67de7935a13  Retrova-1.0.2-mac-arm64.dmg
-33ee26dd3c437705451c74ac9aa985ef351011302fe982dbe617ca77871e1777  Retrova-1.0.2-mac-x64.dmg
-46ef83b61206edcd0e948fe489e2c24344eeefca9f316f499f3f38a8dcc471cf  Retrova-1.0.2-win-x64-Setup.exe
-33af56c759041bbd9cd8da9eceeb6888e1d1663900013b6df2d687da4627e48c  Retrova-1.0.2-win-x64-portable.zip
+108bc5bae5fdb861f4b5d7da7275978601c1e3d524dbc10954e0e3f024143702  Retrova-1.1.0-mac-arm64.dmg
+fab40cce513c3930de8270abfdbf80df2ab305cbba618ada81178bab3420cbe7  Retrova-1.1.0-mac-x64.dmg
+0fbd6a41eb0a884244ecd6c1eb1be5a3f901eb2e5c4ebfbc09a4c21573f01641  Retrova-1.1.0-win-x64-Setup.exe
+f15c24a80ad9d24d22095857795aca1335b850546cc3db443c6b2c13ff65a2b5  Retrova-1.1.0-win-x64-portable.zip
 ```
 
 ---
