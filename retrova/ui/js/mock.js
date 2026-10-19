@@ -78,7 +78,7 @@ export function mediaUrl(path, q = {}) {
 }
 function textFor(p) {
   if (p.endsWith('package.json')) return JSON.stringify({ name: 'webapp', version: '2.4.1', private: true, scripts: { dev: 'next dev', build: 'next build' }, dependencies: { next: '14.2.3', react: '18.3.1' } }, null, 2);
-  if (p.endsWith('.md')) return '# Notes\n\n- Back up the T5 before the trip\n- Renew passport (expires in June)\n- Ask Priya about the lease renewal\n';
+  if (p.endsWith('.md')) return '# Notes\n\n- Back up the portable SSD before the trip\n- Renew passport (expires in June)\n- Ask Priya about the lease renewal\n';
   return 'Buy oat milk\nCall the dentist\nSend invoice #0423 to Martin\nWater the fern\n';
 }
 
@@ -170,9 +170,9 @@ function localLs(path) {
 // ------------------------------------------------------------------ drives
 const DRIVES = {
   disks: [
-    { id: 'disk0', name: WIN ? 'Local Disk' : 'Macintosh HD', model: WIN ? 'Samsung SSD 980 PRO 1TB' : 'APPLE SSD AP1024Z', device: WIN ? '\\\\.\\PhysicalDrive0' : '/dev/disk0', size: 1000 * GB, internal: true, removable: false, protocol: WIN ? 'NVMe' : 'Apple Fabric', health: { state: 'ok', detail: 'SMART status: verified' },
+    { id: 'disk0', name: WIN ? 'Local Disk' : 'Macintosh HD', model: WIN ? 'NVMe SSD 1TB' : 'APPLE SSD AP1024Z', device: WIN ? '\\\\.\\PhysicalDrive0' : '/dev/disk0', size: 1000 * GB, internal: true, removable: false, protocol: WIN ? 'NVMe' : 'Apple Fabric', health: { state: 'ok', detail: 'SMART status: verified' },
       partitions: [{ id: 'disk3s1', device: '/dev/disk3s1', offset: 0, size: 994 * GB, fs: WIN ? 'NTFS' : 'APFS', label: WIN ? 'Windows' : 'Macintosh HD', mount: WIN ? 'C:\\' : '/', free: 212 * GB }] },
-    { id: 'disk4', name: 'Samsung T5', model: 'Samsung Portable SSD T5', device: WIN ? '\\\\.\\PhysicalDrive2' : '/dev/disk4', size: 2000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'warn', detail: `${WIN ? 'Windows' : 'macOS'} can't mount the volume on this drive` },
+    { id: 'disk4', name: 'Portable SSD', model: 'Portable SSD', device: WIN ? '\\\\.\\PhysicalDrive2' : '/dev/disk4', size: 2000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'warn', detail: `${WIN ? 'Windows' : 'macOS'} can't mount the volume on this drive` },
       partitions: [{ id: 'disk4s2', device: '/dev/disk4s2', offset: 209735680, size: 1999.8 * GB, fs: 'APFS', label: 'MacStorage', mount: null, free: null }] },
     { id: 'disk5', name: 'Backup Plus', model: 'Seagate BUP Slim', device: WIN ? '\\\\.\\PhysicalDrive3' : '/dev/disk5', size: 4000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'ok', detail: 'No problems reported' },
       partitions: [{ id: 'disk5s2', device: '/dev/disk5s2', offset: 0, size: 4000 * GB, fs: 'exFAT', label: 'Backup Plus', mount: WIN ? 'E:\\' : '/Volumes/Backup Plus', free: 2410 * GB }] },
@@ -184,10 +184,10 @@ DRIVES.volumes = DRIVES.disks.flatMap(d => d.partitions.filter(p => p.mount).map
 
 const SRC = (source, offset, label, size, fs, fs_name, disk, detail, extra = {}) => ({ source, offset, label, size, fs, fs_name, disk, disk_id: disk, mount: '', needs_admin: !ADMIN, supported: !!fs, removable: true, health: 'ok', detail, recommended: false, ...extra });
 const SOURCES = [
-  SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 209735680, 'MacStorage', 1999.8 * GB, 'apfs', 'APFS', 'Samsung T5', `Your computer hasn't opened this one - Retrova can read it directly. It looks damaged.`, { recommended: true, damaged: true, health: 'warn', volumes: ['MacStorage', 'MacStorage - Data'] }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 209735680, 'MacStorage', 1999.8 * GB, 'apfs', 'APFS', 'Portable SSD', `Your computer hasn't opened this one - Retrova can read it directly. It looks damaged.`, { recommended: true, damaged: true, health: 'warn', volumes: ['MacStorage', 'MacStorage - Data'] }),
   SRC(WIN ? '\\\\.\\PhysicalDrive4' : '/dev/rdisk6', 1048576, 'EOS_DIGITAL', 63.9 * GB, 'fat32', 'FAT32', 'SD card', 'Opened by your computer at ' + (WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL') + ' - you can also copy files from it normally.', { mount: WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL', health: 'unknown' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive3' : '/dev/rdisk5', 0, 'Backup Plus', 4000 * GB, 'exfat', 'exFAT', 'Backup Plus', 'Opened by your computer at ' + (WIN ? 'E:\\' : '/Volumes/Backup Plus') + ' - you can also copy files from it normally.', { mount: WIN ? 'E:\\' : '/Volumes/Backup Plus' }),
-  SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 2000 * GB, '', 120 * GB, null, 'Unknown', 'Samsung T5', "No file system Retrova recognises. A deep scan can still find files by their contents.", { health: 'warn' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 2000 * GB, '', 120 * GB, null, 'Unknown', 'Portable SSD', "No file system Retrova recognises. A deep scan can still find files by their contents.", { health: 'warn' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive5' : '/dev/rdisk7', 1048576, '', 238 * GB, 'bitlocker', 'BitLocker (encrypted)', 'Kingston USB', 'Locked with BitLocker. Retrova can open it if you have its password or 48-digit recovery key.', { locked: true, recommended: true, health: 'ok' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive6' : '/dev/rdisk8', 0, '', 1000 * GB, 'luks', 'LUKS (encrypted)', 'Seagate Expansion', 'Locked with LUKS (Linux disk encryption). Retrova can open it if you have its passphrase.', { locked: true, health: 'ok' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive0' : '/dev/rdisk0', 40960, WIN ? 'Windows' : 'Macintosh HD', 994 * GB, WIN ? 'ntfs' : 'apfs', WIN ? 'NTFS' : 'APFS', WIN ? 'Local Disk' : 'Macintosh HD', 'Opened by your computer at ' + (WIN ? 'C:\\' : '/') + ' - you can also copy files from it normally.', { mount: WIN ? 'C:\\' : '/', removable: false }),
