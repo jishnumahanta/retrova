@@ -66,7 +66,7 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
   * **APFS** (reads the newest usable checkpoint, compressed files and forks `zlib`/`lzvn`/`lzfse`, and tolerates a corrupted catalog tree; it does not browse APFS snapshots)
   * **NTFS**, **FAT12/16/32**, **exFAT**
   * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
-* **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
+* **Deep File Carving**: Extracts **72 file formats** directly from raw block devices without filesystem metadata, including camera RAW (Canon CR2/CR3, Nikon NEF/NRW, Sony ARW, Adobe DNG, Fujifilm RAF, Olympus ORF, Pentax PEF), phone photos and video (HEIC, AVIF, 3GP/3G2), Outlook PST/OST, Apple Pages/Numbers/Keynote and more. Header-and-structure validation rejects false positives.
 * **Sector-Safe Disk Imaging**: Creates raw bit-for-bit `.img` disk images with bad-sector skipping and sparse zero-block detection.
 
 ### 🔍 Verify & Repair
