@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2 (19 October 2026)
+
+Windows fixes. If you're on Windows, please update.
+
+- **Fixed: on Windows, Retrova opened in a browser window and buttons like "Choose folder" didn't work.** A missing WebView2 helper made the real app window fail to start, so Retrova fell back to an Edge window without native dialogs. It now opens in its own window with the normal Windows folder picker.
+- **Fixed: on Windows, Space, Duplicates, Space saver and Cleanup only looked at the top level of a folder** and skipped everything in subfolders. They now scan the whole folder.
+- **Fixed:** the drive list can no longer hang silently on Windows, and helper timeouts are now written to the log.
+
 ## 1.0.1 (18 October 2026)
 
 **Retrova is now open source** under the GNU AGPL-3.0. The full source, build scripts and tests are in this repository.
