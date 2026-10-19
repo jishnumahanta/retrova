@@ -9,7 +9,8 @@
 Node.handle is a small picklable value (ints/str/tuples) that lets a worker
 *process* re-open the filesystem from the same spec and find the file again:
 APFS (oid, sibling_id), NTFS MFT segment, FAT/exFAT (first cluster, size, ...),
-ext/XFS inode number, Btrfs (subvolume id, inode number).
+ext/XFS inode number, Btrfs (subvolume id, inode number), HFS+ (catalog id, data fork,
+resource fork, compressed flag).
 
 Each view is single-threaded: callers either own it or hold a lock around it.
 Optional dissect modules are imported lazily, so a missing one only disables that
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import io
 import stat
+import struct
 import time
 
 from .partitions import FS_NAMES, SUPPORTED, UNSUPPORTED_WHY, detect_fs
@@ -691,12 +693,61 @@ class BtrfsView(FSView):
         return self._inode(handle).link
 
 
+# ====================================================================== HFS+ / HFSX
+class HfsView(FSView):
+    fstype = "hfs+"
+
+    def __init__(self, spec, **_):
+        super().__init__(spec)
+        from .hfsplus import HfsError, HfsPlus
+        try:
+            self.fs = HfsPlus(self.src)
+            self.label = self.fs.label
+        except (HfsError, OSError, ValueError, struct.error) as ex:
+            self.src.close()
+            raise FsError(f"The Mac OS Extended (HFS+) volume can't be read ({type(ex).__name__}: {ex}).") from ex
+        self.case_insensitive = not self.fs.hfsx
+        if self.fs.unclean:
+            self.notes.append("This drive wasn't ejected cleanly. Files changed just before that may be missing "
+                              "or out of date, because Retrova doesn't replay the drive's journal.")
+
+    def _node(self, e):
+        handle = (e.cid, tuple(e.data), tuple(e.rsrc), e.compressed) if e.data else None
+        return Node(e.name, e.kind, e.size if e.kind == "file" else 0, e.mtime_ns, e.atime_ns,
+                    None if e.mode is None else e.mode & 0o7777, handle, e, e.error)
+
+    def root(self):
+        return self._node(self.fs.root())
+
+    def iterdir(self, node):
+        for e in self.fs.iterdir(node.obj.cid):
+            yield self._node(e)
+
+    def open_handle(self, handle):
+        from .hfsplus import Fork
+        cid, data, rsrc, compressed = handle
+        data, rsrc = Fork(*data), Fork(*rsrc)
+        stream = self.fs.open_file(cid, data, rsrc, compressed)
+        covered = getattr(stream, "covered", None)
+        if covered is None or covered >= stream.size:
+            return stream
+        if not covered:
+            raise IOError(f"The file's data can't be found - only {covered:,} of {stream.size:,} bytes are located")
+        stream.size = covered
+        return PartialStream(stream, covered, data.size,
+                             f"Part of the file's location record is missing - only the first {covered:,} of "
+                             f"{data.size:,} bytes can be found")
+
+    def readlink(self, handle):
+        return self.open_handle(handle).read(4096).decode("utf-8", "replace")
+
+
 VIEWS = {"apfs": ApfsView, "ntfs": NtfsView, "fat12": FatView, "fat16": FatView, "fat32": FatView,
          "exfat": ExfatView, "ext2": ExtView, "ext3": ExtView, "ext4": ExtView, "xfs": XfsView,
-         "btrfs": BtrfsView}
+         "btrfs": BtrfsView, "hfs+": HfsView}
 _MODULES = {"apfs": "dissect.apfs", "ntfs": "dissect.ntfs", "fat12": "dissect.fat", "fat16": "dissect.fat",
             "fat32": "dissect.fat", "exfat": "dissect.util", "ext2": "dissect.extfs", "ext3": "dissect.extfs",
-            "ext4": "dissect.extfs", "xfs": "dissect.xfs", "btrfs": "dissect.btrfs"}
+            "ext4": "dissect.extfs", "xfs": "dissect.xfs", "btrfs": "dissect.btrfs", "hfs+": "dissect.util"}
 
 
 def available(fs: str) -> bool:

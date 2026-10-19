@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- **New: Retrova can read Mac OS Extended (HFS+ and HFSX) drives.** That covers older Macs, many Time Machine drives and older external drives. Folders, files, symlinks, hard links, resource forks and compressed files are read, names with accents and emoji come out right, and Time Machine backup folders can be browsed like any other folder. Apple Partition Map disks (old PowerPC Macs) are recognised too. Not covered: the drive's journal isn't replayed, so changes made just before a drive was pulled out without ejecting may be missing (Retrova says so when it sees that).
+
 ## Unreleased
 
 - **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).
