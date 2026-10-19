@@ -64,8 +64,9 @@ Check the official SHA-256 checksums in [**`SHA256SUMS`**](https://github.com/ji
 ### 🛟 Rescue
 * **Unmountable Drive Recovery**: Direct block-level parser for damaged or unmountable partitions:
   * **APFS** (reads the newest usable checkpoint, compressed files and forks `zlib`/`lzvn`/`lzfse`, and tolerates a corrupted catalog tree; it does not browse APFS snapshots)
+  * **HFS+ / HFSX** (Mac OS Extended: older Macs, many Time Machine and old external drives; reads hard links, Time Machine backup folders, compressed files and resource forks; it does not replay the journal)
   * **NTFS**, **FAT12/16/32**, **exFAT**
-  * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR** partition table scanning.
+  * **ext2/3/4**, **XFS**, **Btrfs**, and **GPT/MBR/Apple Partition Map** partition table scanning.
 * **Deep File Carving**: Extracts **45 file formats** directly from raw block devices without filesystem metadata. Header-and-structure validation rejects false positives.
 * **Careful Imaging of Failing Drives**: Creates raw `.img` disk images the way GNU ddrescue does: a first pass saves the healthy data and skips ahead on read errors, then damaged areas are trimmed at their edges, scraped sector by sector and retried. Progress is kept in a ddrescue-compatible `.map` file, so Stop and app restarts continue exactly where it stopped. Zero areas are skipped (sparse), unreadable areas are listed, and a complete image gets a SHA-256 fingerprint.
 
