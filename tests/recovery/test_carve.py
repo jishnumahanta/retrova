@@ -176,3 +176,96 @@ def test_existing_results_are_not_overwritten(disk, tmp_path):
     job, st = carve(path, out, types=["png"])
     assert open(mine, "rb").read() == b"mine"
     assert open(mine + ".retrova-2", "rb").read() == data
+
+
+# ---------------------------------------------------------------- format-specific checks
+def test_every_type_has_a_sample_except_the_known_gaps(samples):
+    assert set(cf.TYPES) - {typ for typ, _ in samples.values()} == {"doc", "xls", "ppt", "msg", "ogg", "flac", "mkv"}
+    for t, (ext, group, name, cap) in cf.TYPES.items():
+        assert group in cf.GROUPS and ext and name and cap > 0, t
+
+
+def test_camera_raw_and_phone_files_get_the_right_extension(samples):
+    want = {"canon.cr2": "cr2", "canon.cr3": "cr3", "nikon.nef": "nef", "coolpix.nrw": "nrw", "sony.arw": "arw",
+            "adobe.dng": "dng", "pentax.pef": "pef", "olympus.orf": "orf", "fuji.raf": "raf", "photo.avif": "avif",
+            "iphone.heic": "heic", "image.jxl": "jxl", "big.psb": "psb", "art.psd": "psd", "scan.tif": "tif"}
+    for name, typ in want.items():
+        assert samples[name][0] == typ and cf.TYPES[typ][0] == typ
+        assert detect(samples[name][1], typ) == (len(samples[name][1]), typ), name
+
+
+def test_avif_with_the_generic_heif_brand_is_still_avif(samples):
+    assert b"mif1" in samples["photo.avif"][1][:40]
+    assert detect(samples["photo.avif"][1], "avif")[1] == "avif"
+
+
+def test_animated_png_is_carved_whole(samples):
+    typ, data = samples["anim.apng"]
+    assert typ == "png" and data.count(b"fdAT") >= 1 and detect(data + b"\xff" * 50, "png") == (len(data), "png")
+
+
+def test_rtf_binary_data_and_block_boundaries(samples):
+    data = samples["letter.rtf"][1]
+    assert detect(data + b"}}}}", "rtf") == (len(data), "rtf")
+    old = cf.BLK
+    try:
+        for blk in (40, 41, 64, 97, 200):          # tokens and \bin data straddling every kind of block edge
+            cf.BLK = blk
+            for name in ("letter.rtf", "book.rtf"):
+                if name == "book.rtf" and blk < 64:
+                    continue
+                d = samples[name][1]
+                assert detect(d + b"}}", "rtf") == (len(d), "rtf"), (name, blk)
+    finally:
+        cf.BLK = old
+    assert detect(data.replace(b"\\par", b"\\par\x80", 1), "rtf") is None       # raw 8-bit byte: not RTF text
+    assert detect(data[:-4], "rtf") is None                                     # the outer brace never closes
+
+
+def test_eml_needs_a_multipart_closing_line(samples):
+    data = samples["mail.eml"][1]
+    assert detect(data, "eml") == (len(data), "eml")
+    assert detect(data.replace(b"----=_Part_77_1--", b"----=_Part_77_1-X"), "eml") is None
+    single = data.replace(b"multipart/mixed;", b"text/plain;")
+    assert detect(single, "eml") is None
+
+
+def test_wal_stops_at_the_first_frame_that_is_not_valid(samples):
+    wal = samples["db.sqlite-wal"][1]
+    page = int.from_bytes(wal[8:12], "big")
+    frame = 24 + page
+    assert (len(wal) - 32) % frame == 0
+    n = (len(wal) - 32) // frame
+    assert n >= 5
+    assert detect(wal, "wal") == (len(wal), "wal")
+    bad = bytearray(wal)
+    bad[32 + 3 * frame + 100] ^= 0xFF               # one flipped byte in frame 4 breaks its checksum
+    assert detect(bytes(bad), "wal") == (32 + 3 * frame, "wal")
+    stale = bytearray(wal + wal[32:32 + frame])
+    stale[len(wal) + 8:len(wal) + 12] = b"\1\2\3\4"  # a leftover frame from an earlier log (other salt)
+    assert detect(bytes(stale), "wal") == (len(wal), "wal")
+
+
+def test_pst_header_is_checked_against_the_file(samples):
+    data = samples["mail.pst"][1]
+    assert detect(data, "pst") == (len(data), "pst")
+    bad = bytearray(data)
+    bad[0x4400 + 496] = 0                           # the last allocation map page is not one
+    assert detect(bytes(bad), "pst") is None
+    assert detect(samples["cache.ost"][1], "ost")[1] == "ost"
+
+
+def test_asf_with_and_without_a_file_size(samples):
+    for name, kind in (("video.wmv", "wmv"), ("song.wma", "wma")):
+        d = samples[name][1]
+        assert detect(d, kind) == (len(d), kind)
+    d = bytearray(samples["video.wmv"][1])
+    d[30 + 40:30 + 48] = (len(d) + 5).to_bytes(8, "little")      # the header claims a different file size
+    assert detect(bytes(d), "wmv") is None
+
+
+def test_fonts_are_checked_table_by_table(samples):
+    d = bytearray(samples["body.ttf"][1])
+    assert detect(bytes(d), "ttf") == (len(d), "ttf")
+    d[12 + 16 * 2 + 8] ^= 1                                      # a table offset that is no longer 4-byte aligned
+    assert detect(bytes(d), "ttf") is None

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import struct
+import uuid
 import zlib
 
 KB, MB, GB = 1024, 1024 ** 2, 1024 ** 3
@@ -31,11 +32,21 @@ TYPES = {
     "nef": ("nef", "photos", "Nikon RAW photo", 512 * MB),
     "arw": ("arw", "photos", "Sony RAW photo", 512 * MB),
     "dng": ("dng", "photos", "DNG RAW photo", 512 * MB),
+    "nrw": ("nrw", "photos", "Nikon RAW photo (Coolpix)", 256 * MB),
+    "orf": ("orf", "photos", "Olympus RAW photo", 256 * MB),
+    "raf": ("raf", "photos", "Fujifilm RAW photo", 512 * MB),
+    "pef": ("pef", "photos", "Pentax RAW photo", 256 * MB),
+    "jxl": ("jxl", "photos", "JPEG XL image", 128 * MB),
+    "ico": ("ico", "photos", "Windows icon", 64 * MB),
+    "svg": ("svg", "photos", "SVG drawing", 8 * MB),
     "psd": ("psd", "photos", "Photoshop document", 2 * GB),
+    "psb": ("psb", "photos", "Photoshop large document", 8 * GB),
     "mp4": ("mp4", "videos", "MP4 video", 64 * GB),
     "mov": ("mov", "videos", "QuickTime video", 64 * GB),
     "m4v": ("m4v", "videos", "M4V video", 64 * GB),
     "3gp": ("3gp", "videos", "3GP video", 8 * GB),
+    "3g2": ("3g2", "videos", "3G2 video", 8 * GB),
+    "wmv": ("wmv", "videos", "Windows Media video", 16 * GB),
     "avi": ("avi", "videos", "AVI video", 4 * GB),
     "mkv": ("mkv", "videos", "Matroska video", 64 * GB),
     "webm": ("webm", "videos", "WebM video", 64 * GB),
@@ -45,6 +56,10 @@ TYPES = {
     "ogg": ("ogg", "music", "Ogg audio", 1 * GB),
     "opus": ("opus", "music", "Opus audio", 1 * GB),
     "flac": ("flac", "music", "FLAC audio", 2 * GB),
+    "aac": ("aac", "music", "AAC audio", 1 * GB),
+    "aiff": ("aiff", "music", "AIFF audio", 4 * GB),
+    "wma": ("wma", "music", "Windows Media audio", 2 * GB),
+    "midi": ("mid", "music", "MIDI music", 16 * MB),
     "pdf": ("pdf", "documents", "PDF document", 512 * MB),
     "docx": ("docx", "documents", "Word document", 1 * GB),
     "xlsx": ("xlsx", "documents", "Excel spreadsheet", 1 * GB),
@@ -57,12 +72,25 @@ TYPES = {
     "xls": ("xls", "documents", "Excel 97-2003 spreadsheet", 1 * GB),
     "ppt": ("ppt", "documents", "PowerPoint 97-2003 presentation", 2 * GB),
     "msg": ("msg", "documents", "Outlook message", 512 * MB),
+    "pst": ("pst", "documents", "Outlook mail file (PST)", 64 * GB),
+    "ost": ("ost", "documents", "Outlook offline mail file (OST)", 64 * GB),
+    "eml": ("eml", "documents", "Email message (with attachments)", 32 * MB),
+    "rtf": ("rtf", "documents", "Rich Text document", 256 * MB),
+    "pages": ("pages", "documents", "Apple Pages document", 2 * GB),
+    "numbers": ("numbers", "documents", "Apple Numbers spreadsheet", 2 * GB),
+    "key": ("key", "documents", "Apple Keynote presentation", 4 * GB),
     "zip": ("zip", "archives", "ZIP archive", 4 * GB),
     "apk": ("apk", "archives", "Android app", 4 * GB),
     "jar": ("jar", "archives", "Java archive", 4 * GB),
     "rar": ("rar", "archives", "RAR archive", 16 * GB),
     "7z": ("7z", "archives", "7-Zip archive", 16 * GB),
     "sqlite": ("sqlite", "other", "SQLite database", 8 * GB),
+    "wal": ("sqlite-wal", "other", "SQLite write-ahead log", 2 * GB),
+    "kmz": ("kmz", "other", "Google Earth file (KMZ)", 256 * MB),
+    "ttf": ("ttf", "other", "TrueType font", 128 * MB),
+    "otf": ("otf", "other", "OpenType font", 128 * MB),
+    "woff": ("woff", "other", "Web font (WOFF)", 64 * MB),
+    "woff2": ("woff2", "other", "Web font (WOFF2)", 64 * MB),
 }
 GROUPS = {"photos", "videos", "music", "documents", "archives", "other"}
 
@@ -72,7 +100,8 @@ def expand_types(names) -> set:
     names = [str(n).lower().strip().lstrip(".") for n in (names or [])]
     if not names or "all" in names:
         return set(TYPES)
-    alias = {"jpeg": "jpg", "tiff": "tif", "heif": "heic", "sqlite3": "sqlite", "db": "sqlite", "qt": "mov",
+    alias = {"jpeg": "jpg", "tiff": "tif", "heif": "heic", "sqlite3": "sqlite", "db": "sqlite", "qt": "mov", "mid": "midi",
+             "aif": "aiff", "sqlite-wal": "wal", "email": "eml",
              "image": "photos", "images": "photos", "photo": "photos", "video": "videos", "audio": "music",
              "office": "documents", "docs": "documents", "archive": "archives"}
     out = set()
@@ -359,7 +388,9 @@ def isobmff(rd, s, cap):
     if bset & _HEIF or b"avif" in bset or b"avis" in bset:
         if b"meta" not in boxes or (b"mdat" not in boxes and b"idat" not in boxes):
             return None
-        return total, ("avif" if (b"avif" in bset or b"avis" in bset) and not bset & _HEIF else "heic")
+        # AVIF files usually list the generic "mif1" brand too, so the main brand decides first
+        is_avif = major in (b"avif", b"avis") or (b"avif" in bset or b"avis" in bset) and not bset & _HEIF
+        return total, ("avif" if is_avif else "heic")
     if b"moov" not in boxes:
         return None
     mv = rd.read(boxes[b"moov"], 4096)
@@ -373,7 +404,9 @@ def isobmff(rd, s, cap):
         typ = "m4a"
     elif major == b"M4V ":
         typ = "m4v"
-    elif major[:3] in (b"3gp", b"3g2"):
+    elif major[:3] == b"3g2":
+        typ = "3g2"
+    elif major[:3] == b"3gp":
         typ = "3gp"
     else:
         typ = "mp4"
@@ -558,6 +591,14 @@ def _zip_kind(rd, s, names):
             return "ods"
         if b"opendocument.presentation" in mt:
             return "odp"
+    if any(n.startswith("Index/") and n.endswith(".iwa") for n in ns):      # Apple iWork (2013 and later)
+        if any(n.startswith("Index/CalculationEngine") for n in ns):
+            return "numbers"
+        if any(n.startswith(("Index/Slide", "Index/MasterSlide")) for n in ns):
+            return "key"
+        return "pages"
+    if any(n.lower().endswith(".kml") for n in ns) and "[Content_Types].xml" not in sset:
+        return "kmz"
     if "AndroidManifest.xml" in sset and any(n.endswith(".dex") for n in ns):
         return "apk"
     if "META-INF/MANIFEST.MF" in sset and any(n.endswith(".class") for n in ns):
@@ -903,7 +944,8 @@ _TIFF_SIZES = {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 
 
 def tiff(rd, s, cap):
     h = rd.read(s, 16)
-    if h[:4] == b"II*\0":
+    orf = h[:4] in (b"IIRO", b"IIRS")          # Olympus RAW: a TIFF with its own version number
+    if h[:4] == b"II*\0" or orf:
         e = "<"
     elif h[:4] == b"MM\0*":
         e = ">"
@@ -916,7 +958,7 @@ def tiff(rd, s, cap):
         return None
     end = 8
     todo, seen, ifds = [first], set(), 0
-    make, dng, has_dims = b"", False, False
+    make, model, dng, has_dims, has_strips = b"", b"", False, False, False
     pairs = {(273, 279), (324, 325), (513, 514)}
     while todo and ifds < 64:
         off = todo.pop()
@@ -955,6 +997,8 @@ def tiff(rd, s, cap):
                 has_dims = True
             if tag == 271:
                 make = raw[:16]
+            if tag == 272:
+                model = raw[:16]
             if tag == 50706:
                 dng = True
 
@@ -973,6 +1017,7 @@ def tiff(rd, s, cap):
                 if o + c > cap:
                     return None
                 end = max(end, o + c)
+                has_strips = has_strips or c > 0
         for sub in ints(330) + ints(34665):
             todo.append(sub)
         nxt = u32(tbl, cnt * 12)
@@ -980,17 +1025,22 @@ def tiff(rd, s, cap):
             todo.append(nxt)
     if not has_dims or end < 64:
         return None
-    if h[8:10] == b"CR" and e == "<":
+    make = make.upper()
+    if orf:
+        typ = "orf" if has_strips else None      # the raw data's size is what gives the file its true end
+    elif h[8:10] == b"CR" and e == "<":
         typ = "cr2"
     elif dng:
         typ = "dng"
-    elif make.upper().startswith(b"NIKON"):
-        typ = "nef"
-    elif make.upper().startswith(b"SONY"):
+    elif make.startswith(b"NIKON"):
+        typ = "nrw" if model.upper().startswith(b"COOLPIX") else "nef"
+    elif make.startswith(b"SONY"):
         typ = "arw"
+    elif make.startswith((b"PENTAX", b"RICOH IMAGING")):
+        typ = "pef"
     else:
         typ = "tif"
-    return end, typ
+    return (end, typ) if typ else None
 
 
 # ====================================================================== Photoshop
@@ -1032,7 +1082,7 @@ def psd(rd, s, cap):
         return None
     if pos > lim:
         return None
-    return pos - s, "psd"
+    return pos - s, "psb" if ver == 2 else "psd"
 
 
 # ====================================================================== OLE2 compound files (doc/xls/ppt/msg)
@@ -1106,6 +1156,402 @@ def ole(rd, s, cap):
     return total, typ
 
 
+# ====================================================================== Fujifilm RAF
+def raf(rd, s, cap):
+    h = rd.read(s, 0x6C)
+    if len(h) < 0x6C or h[:16] != b"FUJIFILMCCD-RAW " or not h[16:20].isdigit() or not h[0x3C:0x40].isdigit():
+        return None
+    jpg_off, jpg_len, hdr_off, hdr_len, cfa_off, cfa_len = struct.unpack_from(">6I", h, 0x54)
+    if jpg_off < 0x6C or jpg_len == 0 or cfa_len == 0:
+        return None
+    end = 0x6C
+    for off, ln in ((jpg_off, jpg_len), (hdr_off, hdr_len), (cfa_off, cfa_len)):
+        if ln and (off < 0x6C or off + ln > cap):
+            return None
+        end = max(end, off + ln)
+    if rd.read(s + jpg_off, 3) != b"\xff\xd8\xff":
+        return None
+    return end, "raf"
+
+
+# ====================================================================== JPEG XL (container form)
+_JXL_SIG = b"\0\0\0\x0cJXL \r\n\x87\n"
+_JXL_BOXES = {b"ftyp", b"jxll", b"jxli", b"jxlc", b"jxlp", b"Exif", b"xml ", b"jumb", b"brob", b"jbrd"}
+
+
+def jxl(rd, s, cap):
+    if rd.read(s, 12) != _JXL_SIG:
+        return None
+    pos, lim, seen = s + 12, s + cap, []
+    while pos + 8 <= lim:
+        hd = rd.read(pos, 16)
+        if len(hd) < 8 or hd[4:8] not in _JXL_BOXES:
+            break
+        sz, t = _be32(hd), hd[4:8]
+        if sz == 1:
+            sz = _be64(hd, 8) if len(hd) == 16 else 0
+        if sz < 8 or pos + sz > lim:
+            return None            # (size 0 means "to the end of the file": no way to tell where that is)
+        if not seen and (t != b"ftyp" or rd.read(pos + 8, 4) != b"jxl "):
+            return None
+        seen.append(t)
+        pos += sz
+    if b"jxlc" not in seen and b"jxlp" not in seen:
+        return None
+    return pos - s, "jxl"
+
+
+# ====================================================================== ICO
+def ico(rd, s, cap):
+    h = rd.read(s, 6)
+    if len(h) < 6 or h[:4] != b"\0\0\1\0" or not 1 <= _le16(h, 4) <= 64:
+        return None
+    n = _le16(h, 4)
+    ent = rd.read(s + 6, 16 * n)
+    if len(ent) < 16 * n:
+        return None
+    end = 6 + 16 * n
+    for i in range(n):
+        w, _h, _c, res, planes, bpp, size, off = struct.unpack_from("<BBBBHHII", ent, 16 * i)
+        if res or planes > 1 or bpp not in (0, 1, 4, 8, 16, 24, 32) or size < 40 or off < 6 + 16 * n \
+                or off + size > cap:
+            return None
+        img = rd.read(s + off, 24)
+        if img[:8] == PNG_SIG:
+            ok = len(img) == 24 and _be32(img, 16) == (w or 256)
+        else:
+            ok = len(img) >= 8 and _le32(img) == 40 and _le32(img, 4) == (w or 256)
+        if not ok:
+            return None
+        end = max(end, off + size)
+    return end, "ico"
+
+
+# ====================================================================== SVG (text, bounded)
+_SVG_TAG = re.compile(rb"<svg[\s>/]|</svg\s*>")
+_SVG_BAD = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def svg(rd, s, cap):
+    blk = rd.read(s, min(cap, 8 * MB))
+    if blk[:4] != b"<svg" and blk[:5] != b"<?xml":
+        return None
+    first = blk.find(b"<svg")
+    if first < 0 or (blk[:4] != b"<svg" and first > 4096):
+        return None
+    tag_end = blk.find(b">", first)
+    if tag_end < 0 or b"http://www.w3.org/2000/svg" not in blk[first:tag_end]:
+        return None
+    depth, end = 0, None
+    for m in _SVG_TAG.finditer(blk, first):
+        depth += 1 if m.group()[:2] == b"<s" else -1
+        if depth == 0:
+            end = m.end()
+            break
+    if end is None or _SVG_BAD.search(blk, 0, end):
+        return None
+    try:
+        blk[:end].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return end + (2 if blk[end:end + 2] == b"\r\n" else 1 if blk[end:end + 1] == b"\n" else 0), "svg"
+
+
+# ====================================================================== ASF (WMV / WMA)
+def _guid(x):
+    return uuid.UUID(x).bytes_le
+
+
+_ASF_HEADER = _guid("75B22630-668E-11CF-A6D9-00AA0062CE6C")
+_ASF_DATA = _guid("75B22636-668E-11CF-A6D9-00AA0062CE6C")
+_ASF_FILE_PROPS = _guid("8CABDCA1-A947-11CF-8EE4-00C00C205365")
+_ASF_STREAM_PROPS = _guid("B7DC0791-A9B7-11CF-8EE6-00C00C205365")
+_ASF_VIDEO = _guid("BC19EFC0-5B4D-11CF-A8FD-00805F5C442B")
+_ASF_INDEXES = {_guid("33000890-E5B1-11CF-89F4-00A0C90349CB"), _guid("D6E229D3-35DA-11D1-9034-00A0C90349BE"),
+                _guid("FEB103F8-12AD-4C64-840F-2A1D2F7AD48C"), _guid("3CB73FD0-0C4A-4803-953D-EDF7B6228F0C")}
+
+
+def asf(rd, s, cap):
+    h = rd.read(s, 30)
+    if len(h) < 30 or h[:16] != _ASF_HEADER or h[28:30] != b"\x01\x02":
+        return None
+    hsize, nobj = _le64(h, 16), _le32(h, 24)
+    if not 30 + 24 <= hsize <= 4 * MB or hsize > cap or not 1 <= nobj <= 1000:
+        return None
+    hdr = rd.read(s, hsize)
+    if len(hdr) < hsize:
+        return None
+    pos, count, fsize, video = 30, 0, 0, False
+    while pos + 24 <= hsize:
+        guid, size = hdr[pos:pos + 16], _le64(hdr, pos + 16)
+        if size < 24 or pos + size > hsize:
+            return None
+        if guid == _ASF_FILE_PROPS and size >= 48:
+            fsize = _le64(hdr, pos + 40)
+        elif guid == _ASF_STREAM_PROPS and size >= 40:
+            video = video or hdr[pos + 24:pos + 40] == _ASF_VIDEO
+        pos += size
+        count += 1
+    if pos != hsize or count != nobj:
+        return None
+    d = rd.read(s + hsize, 50)
+    if len(d) < 50 or d[:16] != _ASF_DATA or _le64(d, 16) < 50:
+        return None
+    pos = hsize + _le64(d, 16)
+    lim = s + cap
+    while s + pos + 24 <= lim and (fsize == 0 or pos < fsize):         # index objects after the media data
+        o = rd.read(s + pos, 24)
+        if len(o) < 24 or (fsize == 0 and o[:16] not in _ASF_INDEXES) or _le64(o, 16) < 24:
+            break
+        pos += _le64(o, 16)
+    if (fsize and pos != fsize) or s + pos > lim:
+        return None
+    return pos, "wmv" if video else "wma"
+
+
+# ====================================================================== AAC (ADTS)
+def adts(rd, s, cap):
+    lim, pos, frames, ref = s + cap, s, 0, None
+    while pos + 7 <= lim:
+        h = rd.read(pos, 7)
+        if len(h) < 7 or h[0] != 0xFF or h[1] & 0xF6 != 0xF0:
+            break
+        chans = ((h[2] & 1) << 2) | (h[3] >> 6)
+        n = ((h[3] & 3) << 11) | (h[4] << 3) | (h[5] >> 5)
+        key = (h[1], h[2] & 0xFD, h[3] >> 6)
+        if (h[2] >> 2) & 15 > 12 or not 1 <= chans <= 7 or n < (7 if h[1] & 1 else 9) or key != (ref or key) \
+                or pos + n > lim:
+            break
+        ref = key
+        pos += n
+        frames += 1
+    return (pos - s, "aac") if frames >= 25 else None
+
+
+# ====================================================================== AIFF and MIDI
+def aiff(rd, s, cap):
+    h = rd.read(s, 12)
+    if len(h) < 12 or h[:4] != b"FORM" or h[8:12] not in (b"AIFF", b"AIFC"):
+        return None
+    total = _be32(h, 4) + 8
+    if total < 12 + 26 or total > cap or total & 1:
+        return None
+    pos, end, ids = s + 12, s + total, set()
+    while pos + 8 <= end:
+        c = rd.read(pos, 8)
+        if len(c) < 8 or not _printable4(c[:4]):
+            return None
+        ids.add(c[:4])
+        n = _be32(c, 4)
+        pos += 8 + n + (n & 1)
+    if not end <= pos <= end + 1 or not {b"COMM", b"SSND"} <= ids:
+        return None
+    return total, "aiff"
+
+
+def midi(rd, s, cap):
+    h = rd.read(s, 14)
+    if len(h) < 14 or h[:4] != b"MThd" or _be32(h, 4) != 6:
+        return None
+    fmt, tracks, division = _be16(h, 8), _be16(h, 10), _be16(h, 12)
+    if fmt > 2 or not 1 <= tracks <= 256 or (fmt == 0 and tracks != 1) or division == 0:
+        return None
+    pos, lim = s + 14, s + cap
+    for _ in range(tracks):
+        c = rd.read(pos, 8)
+        if len(c) < 8 or c[:4] != b"MTrk":
+            return None
+        pos += 8 + _be32(c, 4)
+        if pos > lim or rd.read(pos - 3, 3) != b"\xff\x2f\x00":       # every track ends with an end-of-track event
+            return None
+    return pos - s, "midi"
+
+
+# ====================================================================== RTF
+_RTF_TOK = re.compile(rb"\\bin(\d{1,10}) ?|\\.|[{}]|[\x00-\x08\x0b\x0c\x0e-\x1f\x80-\xff]", re.S)
+
+
+def rtf(rd, s, cap):
+    """Brace matching: the file ends where the first brace closes. RTF is 7-bit text (anything else is
+    written as \\'xx), so a stray binary byte means this isn't one; \\binN data is skipped unread."""
+    if rd.read(s, 6) != b"{\\rtf1":
+        return None
+    lim, pos, depth, skip_to = s + cap, s, 0, s
+    while pos < lim:
+        blk = rd.read(pos, min(BLK, lim - pos))
+        if not blk:
+            return None
+        final = len(blk) < BLK or pos + len(blk) >= lim
+        limit = len(blk) if final else len(blk) - 16
+        i = max(skip_to - pos, 0)
+        while i < limit:
+            m = _RTF_TOK.search(blk, i)
+            if not m or m.start() >= limit:
+                break
+            tok, i = m.group(), m.end()
+            if tok == b"{":
+                depth += 1
+            elif tok == b"}":
+                depth -= 1
+                if depth == 0:
+                    end = pos + i
+                    tail = rd.read(end, 2)
+                    return end + (2 if tail == b"\r\n" else 1 if tail[:1] == b"\n" else 0) - s, "rtf"
+            elif m.group(1):
+                skip_to = pos + i + int(m.group(1))
+                i = max(i, skip_to - pos)
+            elif len(tok) == 1:
+                return None
+        if final:
+            return None
+        pos = max(pos + max(i, limit), skip_to)
+    return None
+
+
+# ====================================================================== EML (multipart messages)
+_EML_FIELD = re.compile(rb"[A-Za-z][A-Za-z0-9-]*:")
+_EML_BOUNDARY = re.compile(rb'(?is)content-type:\s*multipart/[^\r\n]*?boundary\s*=\s*"?([^";\r\n]{1,70})"?')
+
+
+def eml(rd, s, cap):
+    """Only multipart messages: the closing "--boundary--" line is the one reliable end marker an email has."""
+    blk = rd.read(s, min(cap, 32 * MB))
+    gap = re.search(rb"\r?\n\r?\n", blk[:64 * KB])
+    if not gap:
+        return None
+    head = blk[:gap.start()]
+    if b"\0" in head:
+        return None
+    lines = re.sub(rb"\r?\n[ \t]+", b" ", head).splitlines()
+    if lines and lines[0].startswith(b"From "):
+        lines = lines[1:]
+    if len(lines) < 4 or not all(_EML_FIELD.match(ln) for ln in lines):
+        return None
+    names = {ln.split(b":")[0].lower() for ln in lines}
+    if not names & {b"from", b"to", b"return-path"} or not names & {b"date", b"message-id", b"received", b"subject"}:
+        return None
+    m = _EML_BOUNDARY.search(re.sub(rb"\r?\n[ \t]+", b" ", head))
+    if not m:
+        return None
+    close = b"--" + m.group(1).strip() + b"--"
+    i = blk.find(b"\n" + close, gap.end() - 1)
+    if i < 0 or b"\0" in blk[:i]:
+        return None
+    end = i + 1 + len(close)
+    return end + (2 if blk[end:end + 2] == b"\r\n" else 1 if blk[end:end + 1] == b"\n" else 0), "eml"
+
+
+# ====================================================================== Outlook PST / OST
+def pst(rd, s, cap):
+    """The header holds the file's end (ibFileEof); the last allocation-map page must look like one."""
+    h = rd.read(s, 512)
+    if len(h) < 512 or h[:4] != b"!BDN" or h[8:10] not in (b"SM", b"SO") or h[14] not in (1, 2) or h[15] not in (1, 2):
+        return None
+    ver = _le16(h, 10)
+    if ver in (14, 15):
+        eof, amap, page, trailer, valid = _le32(h, 168), _le32(h, 172), 512, 12, h[200]
+    elif ver in (23, 36):
+        eof, amap, page, trailer, valid = _le64(h, 184), _le64(h, 192), 512 if ver == 23 else 4096, 16, h[248]
+    else:
+        return None
+    if eof % page or not 2 * page <= eof <= cap or amap % page or not 0 < amap < eof or valid > 2:
+        return None
+    if ver != 36:         # 4K-page files keep a different trailer layout; the other checks have to do for them
+        t = rd.read(s + amap + page - trailer, 2)
+        if t != b"\x84\x84":
+            return None
+    return eof, "pst" if h[8:10] == b"SM" else "ost"
+
+
+# ====================================================================== fonts
+def sfnt(rd, s, cap):
+    h = rd.read(s, 12)
+    if len(h) < 12 or h[:4] not in (b"\0\1\0\0", b"OTTO"):
+        return None
+    n = _be16(h, 4)
+    if not 4 <= n <= 100:
+        return None
+    log = n.bit_length() - 1
+    if _be16(h, 6) != 16 << log or _be16(h, 8) != log or _be16(h, 10) != 16 * n - (16 << log):
+        return None
+    tbl = rd.read(s + 12, 16 * n)
+    if len(tbl) < 16 * n:
+        return None
+    end, prev, tables = 12 + 16 * n, b"", {}
+    for i in range(n):
+        tag, off, ln = tbl[16 * i:16 * i + 4], _be32(tbl, 16 * i + 8), _be32(tbl, 16 * i + 12)
+        if not all(32 <= c < 127 for c in tag) or tag <= prev or off % 4 or off < 12 + 16 * n or off + ln > cap:
+            return None
+        prev = tag
+        tables[tag] = (off, ln)
+        end = max(end, off + ln)
+    if b"head" not in tables or b"maxp" not in tables or tables[b"head"][1] < 54:
+        return None
+    magic = rd.read(s + tables[b"head"][0] + 12, 4)
+    if len(magic) < 4 or _be32(magic) != 0x5F0F3CF5:
+        return None
+    end = (end + 3) & ~3
+    return (end, "otf" if h[:4] == b"OTTO" else "ttf") if end <= cap else None
+
+
+def woff(rd, s, cap):
+    h = rd.read(s, 48)
+    v2 = h[:4] == b"wOF2"
+    hdr = 48 if v2 else 44
+    if len(h) < hdr or (h[:4] != b"wOFF" and not v2) or h[4:8] not in (b"\0\1\0\0", b"OTTO", b"true", b"ttcf"):
+        return None
+    length, n = _be32(h, 8), _be16(h, 12)
+    if _be16(h, 14) or n < 1 or not hdr <= length <= cap:
+        return None
+    if v2:
+        meta, mlen, priv, plen = _be32(h, 28), _be32(h, 32), _be32(h, 40), _be32(h, 44)
+        if _be32(h, 20) == 0 or hdr + _be32(h, 20) > length:          # the compressed font data
+            return None
+    else:
+        meta, mlen, priv, plen = _be32(h, 24), _be32(h, 28), _be32(h, 36), _be32(h, 40)
+        if length < hdr + 20 * n or _be32(h, 16) < 12 + 16 * n:
+            return None
+    for off, ln in ((meta, mlen), (priv, plen)):
+        if (off or ln) and (off < hdr or off + ln > length):
+            return None
+    return length, "woff2" if v2 else "woff"
+
+
+# ====================================================================== SQLite write-ahead log
+def _wal_sum(data, s0, s1, little):
+    words = struct.unpack(("<%dI" if little else ">%dI") % (len(data) // 4), data)
+    for i in range(0, len(words), 2):
+        s0 = (s0 + words[i] + s1) & 0xFFFFFFFF
+        s1 = (s1 + words[i + 1] + s0) & 0xFFFFFFFF
+    return s0, s1
+
+
+def wal(rd, s, cap):
+    """Ends after the last frame whose salt and running checksum are valid (what SQLite itself would replay)."""
+    h = rd.read(s, 32)
+    if len(h) < 32 or h[:3] != b"\x37\x7f\x06" or h[3] not in (0x82, 0x83) or _be32(h, 4) != 3007000:
+        return None
+    page = _be32(h, 8)
+    if page < 512 or page > 65536 or page & (page - 1):
+        return None
+    little = h[3] == 0x82
+    s0, s1 = _wal_sum(h[:24], 0, 0, little)
+    if (s0, s1) != (_be32(h, 24), _be32(h, 28)):
+        return None
+    pos, frames, lim = s + 32, 0, s + cap
+    while pos + 24 + page <= lim:
+        fr = rd.read(pos, 24 + page)
+        if len(fr) < 24 + page or fr[8:16] != h[16:24] or _be32(fr) == 0:
+            break
+        n0, n1 = _wal_sum(fr[:8] + fr[24:], s0, s1, little)
+        if (n0, n1) != (_be32(fr, 16), _be32(fr, 20)):
+            break
+        s0, s1 = n0, n1
+        pos += 24 + page
+        frames += 1
+    return (pos - s, "wal") if frames else None
+
+
 # ====================================================================== registry
 # (magic, offset of the magic inside the file, detector, types it can produce)
 SIGNATURES = [
@@ -1114,9 +1560,10 @@ SIGNATURES = [
     (b"GIF8", 0, gif, {"gif"}),
     (b"BM", 0, bmp, {"bmp"}),
     (b"RIFF", 0, riff, {"wav", "avi", "webp"}),
-    (b"ftyp", 4, isobmff, {"mp4", "mov", "m4v", "m4a", "3gp", "heic", "avif", "cr3"}),
+    (b"ftyp", 4, isobmff, {"mp4", "mov", "m4v", "m4a", "3gp", "3g2", "heic", "avif", "cr3"}),
     (b"%PDF-", 0, pdf, {"pdf"}),
-    (b"PK\x03\x04", 0, zip_family, {"zip", "docx", "xlsx", "pptx", "odt", "ods", "odp", "epub", "apk", "jar"}),
+    (b"PK\x03\x04", 0, zip_family, {"zip", "docx", "xlsx", "pptx", "odt", "ods", "odp", "epub", "apk", "jar",
+                                    "pages", "numbers", "key", "kmz"}),
     (b"SQLite format 3\0", 0, sqlite, {"sqlite"}),
     (b"ID3", 0, mp3, {"mp3"}),
     (b"OggS", 0, ogg, {"ogg", "opus"}),
@@ -1124,9 +1571,34 @@ SIGNATURES = [
     (b"Rar!\x1a\x07", 0, rar, {"rar"}),
     (b"7z\xbc\xaf\x27\x1c", 0, sevenzip, {"7z"}),
     (b"\x1a\x45\xdf\xa3", 0, matroska, {"mkv", "webm"}),
-    (b"II*\0", 0, tiff, {"tif", "cr2", "nef", "arw", "dng"}),
-    (b"MM\0*", 0, tiff, {"tif", "nef", "dng"}),
-    (b"8BPS", 0, psd, {"psd"}),
+    (b"II*\0", 0, tiff, {"tif", "cr2", "nef", "nrw", "arw", "dng", "pef"}),
+    (b"MM\0*", 0, tiff, {"tif", "nef", "nrw", "dng", "pef"}),
+    (b"IIRO", 0, tiff, {"orf"}),
+    (b"IIRS", 0, tiff, {"orf"}),
+    (b"FUJIFILMCCD-RAW ", 0, raf, {"raf"}),
+    (b"8BPS", 0, psd, {"psd", "psb"}),
+    (_JXL_SIG, 0, jxl, {"jxl"}),
+    (b"\0\0\1\0", 0, ico, {"ico"}),
+    (b"<svg", 0, svg, {"svg"}),
+    (b"<?xml", 0, svg, {"svg"}),
+    (_ASF_HEADER, 0, asf, {"wmv", "wma"}),
+    (b"\xff\xf1", 0, adts, {"aac"}),
+    (b"\xff\xf9", 0, adts, {"aac"}),
+    (b"FORM", 0, aiff, {"aiff"}),
+    (b"MThd", 0, midi, {"midi"}),
+    (b"{\\rtf1", 0, rtf, {"rtf"}),
+    (b"Return-Path:", 0, eml, {"eml"}),
+    (b"Received:", 0, eml, {"eml"}),
+    (b"Delivered-To:", 0, eml, {"eml"}),
+    (b"MIME-Version:", 0, eml, {"eml"}),
+    (b"X-Mozilla-Status:", 0, eml, {"eml"}),
+    (b"!BDN", 0, pst, {"pst", "ost"}),
+    (b"\0\1\0\0", 0, sfnt, {"ttf", "otf"}),
+    (b"OTTO", 0, sfnt, {"ttf", "otf"}),
+    (b"wOFF", 0, woff, {"woff", "woff2"}),
+    (b"wOF2", 0, woff, {"woff", "woff2"}),
+    (b"\x37\x7f\x06\x82", 0, wal, {"wal"}),
+    (b"\x37\x7f\x06\x83", 0, wal, {"wal"}),
     (_OLE_SIG, 0, ole, {"doc", "xls", "ppt", "msg"}),
 ]
 MAX_MAGIC_SPAN = max(len(m) + o for m, o, _, _ in SIGNATURES)

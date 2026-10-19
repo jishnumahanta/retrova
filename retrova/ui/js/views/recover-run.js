@@ -186,7 +186,7 @@ function imageRun(body, S) {
 
 // ------------------------------------------------------------------ deleted files (carving)
 const GROUP_NAME = { photos: 'Photos', videos: 'Videos', music: 'Music', documents: 'Documents', archives: 'Archives', other: 'Other' };
-const FALLBACK_TYPES = [['jpg', 'photos', 'JPEG'], ['png', 'photos', 'PNG'], ['heic', 'photos', 'HEIC'], ['gif', 'photos', 'GIF'], ['mp4', 'videos', 'MP4'], ['mov', 'videos', 'MOV'],
+const FALLBACK_TYPES = [['jpg', 'photos', 'JPEG'], ['png', 'photos', 'PNG'], ['heic', 'photos', 'HEIC'], ['gif', 'photos', 'GIF'], ['cr3', 'photos', 'Canon RAW'], ['nef', 'photos', 'Nikon RAW'], ['arw', 'photos', 'Sony RAW'], ['mp4', 'videos', 'MP4'], ['mov', 'videos', 'MOV'],
   ['mp3', 'music', 'MP3'], ['wav', 'music', 'WAV'], ['pdf', 'documents', 'PDF'], ['docx', 'documents', 'Word'], ['xlsx', 'documents', 'Excel'], ['pptx', 'documents', 'PowerPoint'], ['zip', 'archives', 'ZIP'], ['sqlite', 'other', 'SQLite']]
   .map(([type, group, name]) => ({ type, ext: type, group, name }));
 let carveTypesCache = null;

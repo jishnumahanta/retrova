@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- **Deep scan recognises 72 file types (was 45).** New: camera RAW from Nikon Coolpix (NRW), Olympus (ORF), Fujifilm (RAF) and Pentax (PEF); JPEG XL, ICO, SVG and Photoshop large documents (PSB); 3G2 and Windows Media video (WMV); AAC, AIFF, Windows Media audio (WMA) and MIDI; Outlook PST/OST mail files, RTF, multipart EML emails and Apple Pages, Numbers and Keynote files; TrueType, OpenType and WOFF/WOFF2 fonts, Google Earth KMZ and SQLite write-ahead logs. Each one is found by walking its real structure to the exact end of the file, and rejected if it is cut short or damaged.
+- **Fixed: AVIF photos were saved as .heic** when they also listed the generic HEIF brand, which most AVIF encoders do.
+- Known limits: EML is only recovered for multipart messages (the closing boundary is the only reliable end marker), RTF files that contain raw 8-bit bytes instead of escapes are skipped, and Panasonic RW2, MBOX and Affinity files are not recovered because their end cannot be found reliably.
+
 ## Unreleased
 
 - **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).

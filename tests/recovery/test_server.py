@@ -196,16 +196,16 @@ def test_carve_endpoint_and_job_control(server, tmp_path):
     types = server.ok("/api/recover/carve_types")
     assert {"jpg", "png", "pdf", "zip", "mp4"} <= {t["type"] for t in types["types"]}
     out = str(tmp_path / "found")
-    j = server.ok("/api/recover/carve", {"source": disk, "out": out, "types": ["jpg", "png", "pdf", "zip", "mp4",
-                                                                               "docx", "xlsx", "pptx", "mp3",
-                                                                               "wav", "sqlite", "mov", "heic"]})
+    # raf, ico and wal are selected too: they carry a JPEG, a PNG and database pages, which would be found on their own
+    kinds = ("jpg", "png", "pdf", "zip", "mp4", "docx", "xlsx", "pptx", "mp3", "wav", "sqlite", "mov", "heic",
+             "raf", "ico", "wal")
+    j = server.ok("/api/recover/carve", {"source": disk, "out": out, "types": list(kinds)})
     assert j["kind"] == "carve"
     st = server.wait(j)
     assert st["state"] == "done", st
     res = server.ok(f"/api/job/result?id={j['id']}&limit=1000")
     want = {off: (typ, data) for _, typ, off, data in placed
-            if typ in ("jpg", "png", "pdf", "zip", "mp4", "docx", "xlsx", "pptx", "mp3", "wav", "sqlite", "mov",
-                       "heic")}
+            if typ in kinds}
     got = {i["offset"]: i for i in res["items"]}
     assert set(got) == set(want)
     for off, (typ, data) in want.items():
