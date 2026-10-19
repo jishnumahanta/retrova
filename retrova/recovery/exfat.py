@@ -103,6 +103,7 @@ class ExFAT:
         self._fat_cache: collections.OrderedDict[int, bytes] = collections.OrderedDict()
         self._lock = threading.Lock()
         self.label = ""
+        self.bitmap = None                       # (first cluster, bytes): which clusters are in use
         root = ExEntry()
         root.name, root.attrs, root.first_cluster = "", ATTR_DIR, self.root_cluster
         root.size = root.valid_size = 0          # unknown: follow the chain
@@ -236,6 +237,8 @@ class ExFAT:
             if t == 0x83 and want_label:
                 n = min(raw[1], 11)
                 self.label = raw[2:2 + n * 2].decode("utf-16-le", "replace")
+            if t == 0x81 and want_label:
+                self.bitmap = (_u32(raw, 20), _u64(raw, 24))
             if t != 0x85:
                 pos += 32
                 continue
