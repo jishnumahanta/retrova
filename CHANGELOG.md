@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 (20 October 2026)
+
+First public release of the 1.1 line: everything listed under 1.1.0 below is included, plus these security and honesty fixes.
+
+- **Security: the administrator helper no longer gets your session token on its command line.** It used to be visible to other programs on the computer while the helper ran. It now goes through a private one-time file that is deleted the moment the helper starts.
+- **Fixed: removing files from a drive that has no Recycle Bin (USB stick, memory card, network share) on Windows.** Windows deletes from those permanently. Retrova now refuses and tells you why, in Duplicates and Cleanup, instead of failing silently.
+- **Windows messages now say "Recycle Bin"** instead of "Trash".
+- **Corrected the descriptions of what Retrova does:** it does not browse APFS snapshots, and PDFs are searched by their text layer (scanned PDF pages are not OCR'd; Windows needs the free pdftotext tool for PDF text). APFS compressed files (zlib, LZVN, LZFSE) are read.
+
 ## 1.1.0 (20 October 2026)
 
 A big free update: deleted files come back with their names, encrypted and older Mac drives open, failing drives are imaged more carefully, and deep scan knows 72 file types.
@@ -12,9 +21,6 @@ A big free update: deleted files come back with their names, encrypted and older
   Limits: Deep scan and Create image on an unlocked APFS (FileVault) volume still read the drive's encrypted bytes (only BitLocker and LUKS are decrypted for those); decryption runs at roughly 100 MB/s, so a 1 TB drive takes a few hours; BitLocker startup-key (.bek) files and TPM-only drives aren't supported.
 - **Deep scan recognises 72 file types (was 45).** New: camera RAW from Nikon Coolpix (NRW), Olympus (ORF), Fujifilm (RAF) and Pentax (PEF); JPEG XL, ICO, SVG and Photoshop large documents (PSB); 3G2 and Windows Media video (WMV); AAC, AIFF, Windows Media audio (WMA) and MIDI; Outlook PST/OST mail files, RTF, multipart EML emails and Apple Pages, Numbers and Keynote files; TrueType, OpenType and WOFF/WOFF2 fonts, Google Earth KMZ and SQLite write-ahead logs. Each one is found by walking its real structure to the exact end of the file, and rejected if it is cut short or damaged.
 - **Fixed: AVIF photos were saved as .heic** when they also listed the generic HEIF brand, which most AVIF encoders do.
-- **Security: the administrator helper no longer gets the session token on its command line.** The token used to be visible to other processes on the machine while the helper ran. It's now passed through a private one-time file (owner-only, deleted as soon as the helper starts).
-- **Fixed: removing files on a drive without a Recycle Bin (USB stick, memory card, network share) on Windows.** Windows can delete from those permanently. Retrova now refuses and says so, instead of moving to a Recycle Bin that isn't there.
-- **Corrected the README:** Retrova doesn't browse APFS snapshots, and PDFs are searched by their text layer (scanned PDF pages aren't OCR'd). APFS compressed files (zlib, LZVN, LZFSE) are read.
 - **Fixed (Windows): recovered links to folders** are now created as folder links, so they open in File Explorer.
 - Known limits: EML is only recovered for multipart messages (the closing boundary is the only reliable end marker), RTF files that contain raw 8-bit bytes instead of escapes are skipped, and Panasonic RW2, MBOX and Affinity files are not recovered because their end cannot be found reliably.
 
