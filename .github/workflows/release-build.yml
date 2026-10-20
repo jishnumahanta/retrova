@@ -1,0 +1,56 @@
+name: Release build
+
+# Builds every Retrova installer from the checked-in source on a clean GitHub runner and records a signed
+# build attestation (provenance) for each file, so anyone can check that a download came from this repository.
+# It only builds. Publishing a release stays a manual step.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+    branches: ["ci/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write       # lets GitHub sign the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nsis gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 hfsprogs cmake \
+            build-essential git zip unzip zlib1g-dev libbz2-dev liblzma-dev libssl-dev python3 python3-venv \
+            python3-pip curl ca-certificates rsync libcairo2 libffi-dev pkg-config \
+            dosfstools mtools e2fsprogs xfsprogs btrfs-progs exfatprogs fdisk
+
+      - name: Build installers
+        run: packaging/build_all.sh
+
+      - name: Checksums
+        run: |
+          cd dist
+          ls -l
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retrova-installers
+          path: dist/
+          if-no-files-found: error
