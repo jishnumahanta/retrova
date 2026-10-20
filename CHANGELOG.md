@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 (21 October 2026)
+
+No changes to what Retrova does. This release changes how it is built.
+
+- **Installers are now built by GitHub Actions** from the public source on a clean machine, and each file carries a signed build attestation. You can check that a download came from this repository with `gh attestation verify <file> --repo jishnumahanta/retrova`. Checksums are still in `SHA256SUMS`.
+
 ## 1.1.1 (20 October 2026)
 
 First public release of the 1.1 line: everything listed under 1.1.0 below is included, plus these security and honesty fixes.
