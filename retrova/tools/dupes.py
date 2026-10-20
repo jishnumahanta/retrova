@@ -339,14 +339,15 @@ class DupesApplyJob(ToolJob):
         self.phase = "Done"
         n = len(self.done)
         if self.action == "trash":
-            self.message = (f"Moved {plural(n, 'duplicate')} to the Trash ({human(self.stats['freed'])}). Empty the "
-                            f"Trash to get the space back - until then you can put them back." if n else
+            bin_name = "Recycle Bin" if IS_WIN else "Trash"
+            self.message = (f"Moved {plural(n, 'duplicate')} to the {bin_name} ({human(self.stats['freed'])}). Empty the "
+                            f"{bin_name} to get the space back - until then you can put them back." if n else
                             "Nothing was moved.")
         else:
             self.message = (f"{plural(n, 'duplicate')} now share space with the copy you kept - "
                             f"{human(self.stats['freed'])} freed. Both names still work." if n else "Nothing changed.")
         if self.failed:
-            self.message += f" {plural(len(self.failed), 'file')} could not be handled - see the list."
+            self.message += f" {plural(len(self.failed), 'file')} could not be handled. {self.failed[0]['error']}"
 
     def _one(self, path, kept, removing, fs_ok) -> int:
         if not kept or not isinstance(kept, str):
@@ -396,7 +397,7 @@ class DupesApplyJob(ToolJob):
         if self.action == "trash":
             r = util.to_trash([path])
             if r["failed"]:
-                raise ApiError("Couldn't move it to the Trash: " + _short(r["failed"][0]["error"]))
+                raise ApiError(f"Couldn't move it to the {'Recycle Bin' if IS_WIN else 'Trash'}: " + _short(r["failed"][0]["error"]))
             return freed
         clone_replace(kept, path, st, self.checkpoint)
         return freed

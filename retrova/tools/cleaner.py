@@ -495,7 +495,7 @@ class CleanApplyJob(ToolJob):
                         f"{bin_name} to get the space back - until then you can put anything back." if n else
                         "Nothing was moved.")
         if self.failed:
-            self.message += f" {plural(len(self.failed), 'item')} couldn't be moved."
+            self.message += f" {plural(len(self.failed), 'item')} couldn't be moved. {self.failed[0]['error']}"
 
     def result(self, q):
         return {"moved": self.moved, "failed": self.failed, "skipped": self.skipped,
