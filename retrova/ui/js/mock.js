@@ -150,9 +150,9 @@ function treeSize(node, path) {
 // ------------------------------------------------------------------ fake local file system (destination pickers)
 const LOCAL = {
   [HOME]: ['Desktop', 'Documents', 'Downloads', 'Movies', 'Music', 'Pictures', 'Projects', 'Virtual Machines.localized'],
-  [WIN ? 'E:\\' : '/Volumes/Backup Plus']: ['Recovered', 'Time Machine Backups', 'Photos archive', 'Projects backup'],
+  [WIN ? 'E:\\' : '/Volumes/Backup Drive']: ['Recovered', 'Time Machine Backups', 'Photos archive', 'Projects backup'],
   [WIN ? 'C:\\' : '/']: WIN ? ['Users', 'Program Files', 'Windows'] : ['Applications', 'Library', 'System', 'Users', 'Volumes'],
-  [WIN ? 'C:\\Users' : '/Volumes']: WIN ? ['Sam', 'Public'] : ['Backup Plus', 'Macintosh HD'],
+  [WIN ? 'C:\\Users' : '/Volumes']: WIN ? ['Sam', 'Public'] : ['Backup Drive', 'Macintosh HD'],
 };
 function localLs(path) {
   const p = path || HOME;
@@ -174,9 +174,9 @@ const DRIVES = {
       partitions: [{ id: 'disk3s1', device: '/dev/disk3s1', offset: 0, size: 994 * GB, fs: WIN ? 'NTFS' : 'APFS', label: WIN ? 'Windows' : 'Macintosh HD', mount: WIN ? 'C:\\' : '/', free: 212 * GB }] },
     { id: 'disk4', name: 'Portable SSD', model: 'Portable SSD', device: WIN ? '\\\\.\\PhysicalDrive2' : '/dev/disk4', size: 2000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'warn', detail: `${WIN ? 'Windows' : 'macOS'} can't mount the volume on this drive` },
       partitions: [{ id: 'disk4s2', device: '/dev/disk4s2', offset: 209735680, size: 1999.8 * GB, fs: 'APFS', label: 'MacStorage', mount: null, free: null }] },
-    { id: 'disk5', name: 'Backup Plus', model: 'Seagate BUP Slim', device: WIN ? '\\\\.\\PhysicalDrive3' : '/dev/disk5', size: 4000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'ok', detail: 'No problems reported' },
-      partitions: [{ id: 'disk5s2', device: '/dev/disk5s2', offset: 0, size: 4000 * GB, fs: 'exFAT', label: 'Backup Plus', mount: WIN ? 'E:\\' : '/Volumes/Backup Plus', free: 2410 * GB }] },
-    { id: 'disk6', name: 'SD card', model: 'SanDisk Extreme 64GB', device: WIN ? '\\\\.\\PhysicalDrive4' : '/dev/disk6', size: 64 * GB, internal: false, removable: true, protocol: 'SD Card', health: { state: 'unknown', detail: "This reader doesn't report drive health" },
+    { id: 'disk5', name: 'Backup Drive', model: 'USB HDD 4TB', device: WIN ? '\\\\.\\PhysicalDrive3' : '/dev/disk5', size: 4000 * GB, internal: false, removable: true, protocol: 'USB', health: { state: 'ok', detail: 'No problems reported' },
+      partitions: [{ id: 'disk5s2', device: '/dev/disk5s2', offset: 0, size: 4000 * GB, fs: 'exFAT', label: 'Backup Drive', mount: WIN ? 'E:\\' : '/Volumes/Backup Drive', free: 2410 * GB }] },
+    { id: 'disk6', name: 'SD card', model: 'SDXC card 64GB', device: WIN ? '\\\\.\\PhysicalDrive4' : '/dev/disk6', size: 64 * GB, internal: false, removable: true, protocol: 'SD Card', health: { state: 'unknown', detail: "This reader doesn't report drive health" },
       partitions: [{ id: 'disk6s1', device: '/dev/disk6s1', offset: 1048576, size: 63.9 * GB, fs: 'FAT32', label: 'EOS_DIGITAL', mount: WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL', free: 41.2 * GB }] },
   ],
 };
@@ -186,10 +186,10 @@ const SRC = (source, offset, label, size, fs, fs_name, disk, detail, extra = {})
 const SOURCES = [
   SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 209735680, 'MacStorage', 1999.8 * GB, 'apfs', 'APFS', 'Portable SSD', `Your computer hasn't opened this one - Retrova can read it directly. It looks damaged.`, { recommended: true, damaged: true, health: 'warn', volumes: ['MacStorage', 'MacStorage - Data'] }),
   SRC(WIN ? '\\\\.\\PhysicalDrive4' : '/dev/rdisk6', 1048576, 'EOS_DIGITAL', 63.9 * GB, 'fat32', 'FAT32', 'SD card', 'Opened by your computer at ' + (WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL') + ' - you can also copy files from it normally.', { mount: WIN ? 'F:\\' : '/Volumes/EOS_DIGITAL', health: 'unknown' }),
-  SRC(WIN ? '\\\\.\\PhysicalDrive3' : '/dev/rdisk5', 0, 'Backup Plus', 4000 * GB, 'exfat', 'exFAT', 'Backup Plus', 'Opened by your computer at ' + (WIN ? 'E:\\' : '/Volumes/Backup Plus') + ' - you can also copy files from it normally.', { mount: WIN ? 'E:\\' : '/Volumes/Backup Plus' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive3' : '/dev/rdisk5', 0, 'Backup Drive', 4000 * GB, 'exfat', 'exFAT', 'Backup Drive', 'Opened by your computer at ' + (WIN ? 'E:\\' : '/Volumes/Backup Drive') + ' - you can also copy files from it normally.', { mount: WIN ? 'E:\\' : '/Volumes/Backup Drive' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive2' : '/dev/rdisk4', 2000 * GB, '', 120 * GB, null, 'Unknown', 'Portable SSD', "No file system Retrova recognises. A deep scan can still find files by their contents.", { health: 'warn' }),
-  SRC(WIN ? '\\\\.\\PhysicalDrive5' : '/dev/rdisk7', 1048576, '', 238 * GB, 'bitlocker', 'BitLocker (encrypted)', 'Kingston USB', 'Locked with BitLocker. Retrova can open it if you have its password or 48-digit recovery key.', { locked: true, recommended: true, health: 'ok' }),
-  SRC(WIN ? '\\\\.\\PhysicalDrive6' : '/dev/rdisk8', 0, '', 1000 * GB, 'luks', 'LUKS (encrypted)', 'Seagate Expansion', 'Locked with LUKS (Linux disk encryption). Retrova can open it if you have its passphrase.', { locked: true, health: 'ok' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive5' : '/dev/rdisk7', 1048576, '', 238 * GB, 'bitlocker', 'BitLocker (encrypted)', 'USB stick', 'Locked with BitLocker. Retrova can open it if you have its password or 48-digit recovery key.', { locked: true, recommended: true, health: 'ok' }),
+  SRC(WIN ? '\\\\.\\PhysicalDrive6' : '/dev/rdisk8', 0, '', 1000 * GB, 'luks', 'LUKS (encrypted)', 'External HDD', 'Locked with LUKS (Linux disk encryption). Retrova can open it if you have its passphrase.', { locked: true, health: 'ok' }),
   SRC(WIN ? '\\\\.\\PhysicalDrive0' : '/dev/rdisk0', 40960, WIN ? 'Windows' : 'Macintosh HD', 994 * GB, WIN ? 'ntfs' : 'apfs', WIN ? 'NTFS' : 'APFS', WIN ? 'Local Disk' : 'Macintosh HD', 'Opened by your computer at ' + (WIN ? 'C:\\' : '/') + ' - you can also copy files from it normally.', { mount: WIN ? 'C:\\' : '/', removable: false }),
 ];
 const findSource = b => SOURCES.find(s => s.source === b.source && (b.offset === undefined || b.offset === null || s.offset === b.offset)) || (SOURCES.find(s => s.source === b.source && b.volume && (s.volumes || []).includes(b.volume)));
@@ -348,7 +348,7 @@ function verifyJob(params, opts = {}) {
   const totalFiles = 12402, totalBytes = 38.4 * GB;
   const repair = !!opts.repair;
   const j = new Job('verify', repair ? 'Repairing the copy from MacStorage' : 'Verifying the copy', params, repair ? 8 : (mode === 'quick' ? 8 : mode === 'sample' ? 25 : 55));
-  const out = params.out || '/Volumes/Backup Plus/Recovered';
+  const out = params.out || '/Volumes/Backup Drive/Recovered';
   const issues = repair ? [
     { status: 'SRC_BAD', sp: '/Users/sam/Pictures/Family/IMG_1187.HEIC', detail: 'The original has unreadable areas (4 KB at offset 1,204,224); those parts were left as they are in the copy.' },
   ] : [
@@ -474,7 +474,7 @@ function dupesJob(params) {
     const size = img ? Math.round(1.5 * MB + r() * 4 * MB) : Math.round(r() > 0.6 ? 200 * MB + r() * 3 * GB : 200 * KB + r() * 8 * MB);
     const places = img
       ? [jp(roots[0], '2024 Iceland'), jp(HOME, 'Desktop'), jp(HOME, 'Downloads'), jp(roots[0], 'Exports'), jp(HOME, 'Documents', 'Photos backup 2023')]
-      : [jp(HOME, 'Documents'), jp(HOME, 'Downloads'), jp(HOME, 'Desktop'), jp('/Volumes/Backup Plus', 'Projects backup'), jp(HOME, 'Documents', 'Old stuff')];
+      : [jp(HOME, 'Documents'), jp(HOME, 'Downloads'), jp(HOME, 'Desktop'), jp('/Volumes/Backup Drive', 'Projects backup'), jp(HOME, 'Documents', 'Old stuff')];
     const files = Array.from({ length: n }, (_, i) => ({ path: jp(places[(g + i) % places.length], i === 1 && r() > 0.5 ? name2.replace(/(\.[^.]+)$/, ' copy$1') : name2), mtime: now() - (200 - i * 30 + r() * 20) * DAY, keep: i === 0 }));
     groups.push({ size, hash: Math.floor(r() * 1e16).toString(16) + g, count: files.length, reclaimable: size * (files.length - 1), files });
   }
@@ -595,7 +595,7 @@ const routes = {
     const lockedKind = src && (src.fs === 'bitlocker' || src.fs === 'luks' ? src.fs : null);
     if (lockedKind) {
       // demo rules: the password is "letmein"; any 48-digit recovery key is accepted for BitLocker
-      if (!b.key) return { needs_key: { kind: lockedKind, label: lockedKind === 'bitlocker' ? 'KINGSTON-PC Work 3/14/2025' : '', accepts: lockedKind === 'bitlocker' ? ['password', 'recovery'] : ['password'],
+      if (!b.key) return { needs_key: { kind: lockedKind, label: lockedKind === 'bitlocker' ? 'WORK-PC 3/14/2025' : '', accepts: lockedKind === 'bitlocker' ? ['password', 'recovery'] : ['password'],
         hint: (lockedKind === 'bitlocker' ? "Enter the drive's password, or its 48-digit recovery key." : 'Enter the passphrase for this encrypted Linux drive.') + ' (Demo: the password is letmein.)', volume: null },
         source: src.source, offset: src.offset, size: src.size, fs: src.fs, fs_name: src.fs_name, partitions: [] };
       const recovery = lockedKind === 'bitlocker' && b.key.replace(/\D/g, '').length === 48;
@@ -684,7 +684,7 @@ const routes = {
   'POST /api/reveal': () => ({ ok: true }),
   'POST /api/open_link': () => ({ ok: true }),
   'POST /api/native/pick': (q, b) => {
-    if (Q.get('native') === '1') return { paths: [b.kind === 'file' ? jp(HOME, 'Desktop', 'MacStorage.img') : jp('/Volumes/Backup Plus', 'Recovered')] };
+    if (Q.get('native') === '1') return { paths: [b.kind === 'file' ? jp(HOME, 'Desktop', 'MacStorage.img') : jp('/Volumes/Backup Drive', 'Recovered')] };
     throw new ApiError("Native dialogs aren't available - use the in-app browser.", 409);
   },
   'POST /api/analyse': (q, b) => analyseJob(b).status(),
@@ -725,8 +725,8 @@ export async function handle(method, fullPath, body) {
 
 // ------------------------------------------------------------------ seed history
 if (!FRESH) {
-  seeded(copyJob({ sid: 's0', paths: ['/Users/sam/Pictures', '/Users/sam/Documents'], out: '/Volumes/Backup Plus/Recovered', label: 'MacStorage' }), 26 * 3600e3);
-  const v = seeded(verifyJob({ from_job: 'x', mode: 'full', out: '/Volumes/Backup Plus/Recovered' }), 25 * 3600e3);
+  seeded(copyJob({ sid: 's0', paths: ['/Users/sam/Pictures', '/Users/sam/Documents'], out: '/Volumes/Backup Drive/Recovered', label: 'MacStorage' }), 26 * 3600e3);
+  const v = seeded(verifyJob({ from_job: 'x', mode: 'full', out: '/Volumes/Backup Drive/Recovered' }), 25 * 3600e3);
   seeded(ocrJob({ paths: [jp(HOME, 'Pictures')] }), 50 * 3600e3).onFinish = null;
   seeded(dupesJob({ paths: [jp(HOME, 'Pictures'), jp(HOME, 'Documents')], min_size: MB }), 20 * 3600e3);
   seeded(cleanScanJob({}), 3 * 3600e3);
@@ -734,10 +734,10 @@ if (!FRESH) {
 }
 for (const k of (Q.get('run') || '').split(',').filter(Boolean)) {
   const make = {
-    copy: () => copyJob({ sid: 's0', paths: ['/Users/sam/Pictures', '/Users/sam/Documents', '/Users/sam/Projects'], excluded: ['/Users/sam/Projects/webapp/node_modules'], out: '/Volumes/Backup Plus/Recovered', label: 'MacStorage' }),
-    image: () => imageJob({ source: SOURCES[0].source, out: '/Volumes/Backup Plus/MacStorage.img', label: 'MacStorage' }),
+    copy: () => copyJob({ sid: 's0', paths: ['/Users/sam/Pictures', '/Users/sam/Documents', '/Users/sam/Projects'], excluded: ['/Users/sam/Projects/webapp/node_modules'], out: '/Volumes/Backup Drive/Recovered', label: 'MacStorage' }),
+    image: () => imageJob({ source: SOURCES[0].source, out: '/Volumes/Backup Drive/MacStorage.img', label: 'MacStorage' }),
     carve: () => carveJob({ source: SOURCES[1].source, out: jp(HOME, 'Recovered files'), types: ['jpg', 'heic', 'png', 'mov', 'mp4', 'pdf'], label: 'EOS_DIGITAL' }),
-    verify: () => verifyJob({ mode: 'full', out: '/Volumes/Backup Plus/Recovered' }),
+    verify: () => verifyJob({ mode: 'full', out: '/Volumes/Backup Drive/Recovered' }),
     analyse: () => analyseJob({ path: HOME }),
     dupes: () => dupesJob({ paths: [jp(HOME, 'Pictures')] }),
     clean_scan: () => cleanScanJob({}),
