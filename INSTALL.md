@@ -21,7 +21,7 @@ This guide covers installing Retrova, configuring permissions for raw disk acces
 ## macOS Setup
 
 ### 1. Installation
-1. Download `Retrova-1.1.2-mac-arm64.dmg` (for Apple Silicon) or `Retrova-1.1.2-mac-x64.dmg` (for Intel).
+1. Download `Retrova-1.1.3-mac-arm64.dmg` (for Apple Silicon) or `Retrova-1.1.3-mac-x64.dmg` (for Intel).
 2. Double-click the `.dmg` file to mount it.
 3. Drag **Retrova.app** into your `/Applications` folder.
 
@@ -45,7 +45,7 @@ To recover files from unmounted, raw, or damaged physical disks, macOS requires 
 ## Windows Setup
 
 ### Option A: Standard Setup (Recommended)
-1. Download `Retrova-1.1.2-win-x64-Setup.exe`.
+1. Download `Retrova-1.1.3-win-x64-Setup.exe`.
 2. Double-click to run the installer. It installs per-user into `%LOCALAPPDATA%\Programs\Retrova` (no administrator rights required to install).
 3. If SmartScreen shows *"Windows protected your PC"*:
    * Click **More info**.
@@ -53,7 +53,7 @@ To recover files from unmounted, raw, or damaged physical disks, macOS requires 
 4. Launch Retrova from your Start Menu.
 
 ### Option B: Portable Version (No Install)
-1. Download `Retrova-1.1.2-win-x64-portable.zip`.
+1. Download `Retrova-1.1.3-win-x64-portable.zip`.
 2. Extract the zip file to any folder or USB drive.
 3. Double-click `Retrova.exe` to run.
 

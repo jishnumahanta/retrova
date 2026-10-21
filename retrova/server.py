@@ -19,6 +19,7 @@ import json
 import mimetypes
 import os
 import secrets
+import socketserver
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -82,6 +83,18 @@ def _job_control(q, body):
     return j.status()
 
 
+class _LocalHTTPServer(ThreadingHTTPServer):
+    """HTTPServer.server_bind() looks up the host's name with socket.getfqdn(). On macOS that
+    reverse lookup can go to multicast DNS and stall the first launch for minutes (or wait on the
+    Local Network privacy check). The engine only ever listens on 127.0.0.1, so skip the lookup."""
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
 class Server:
     def __init__(self, port=0, token=None):
         self.token = token or secrets.token_urlsafe(24)
@@ -90,7 +103,7 @@ class Server:
         last = None
         for p in ([port] if port else [0]):
             try:
-                self.httpd = ThreadingHTTPServer(("127.0.0.1", p), handler)
+                self.httpd = _LocalHTTPServer(("127.0.0.1", p), handler)
                 break
             except OSError as ex:
                 last = ex

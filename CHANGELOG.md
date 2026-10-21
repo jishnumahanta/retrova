@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3 (22 October 2026)
+
+- **Fixed (Mac): the first launch could sit for minutes with no window.** At start-up the app looked up this computer's network name, and on macOS that lookup can stall the first time an app runs. Retrova only talks to itself on this computer, so it no longer looks the name up and the window opens straight away.
+- The built-in demo data now uses generic drive names instead of real brand names.
+
 ## 1.1.2 (21 October 2026)
 
 No changes to what Retrova does. This release changes how it is built.
