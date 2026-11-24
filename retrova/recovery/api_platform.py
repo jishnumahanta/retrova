@@ -99,7 +99,7 @@ def _wait_for(port, token, timeout):
     while time.time() < end:
         if _answers(port, token):
             return True
-        time.sleep(0.3)
+        time.sleep(0.15)
     return False
 
 
@@ -127,11 +127,50 @@ def _discard_token_file(path: str):
     shutil.rmtree(os.path.dirname(path), ignore_errors=True)
 
 
+# The helper detaches itself in Python. Under "do shell script ... with administrator privileges",
+# /usr/bin/nohup can exit before it ever starts Python, so the helper never came up and the app
+# waited until "didn't start in time". osascript also waits for every process still holding its
+# pipes, so the helper ignores SIGHUP, closes inherited descriptors, sends stdio to /dev/null and
+# double-forks with setsid(); the password prompt then returns as soon as the password is accepted.
+_MAC_DAEMON = (
+    "import os,signal,sys; p,tf,par=sys.argv[1:4]; "
+    "signal.signal(signal.SIGHUP,signal.SIG_IGN); "
+    "os.closerange(3,65536); "
+    "fd=os.open(os.devnull,os.O_RDWR); os.dup2(fd,0); os.dup2(fd,1); os.dup2(fd,2); os.close(fd); "
+    "pid=os.fork(); pid and os._exit(0); "
+    "os.setsid(); pid=os.fork(); pid and os._exit(0); "
+    'os.execv(sys.executable,[sys.executable,"-m","retrova","--serve-only","--port",p,'
+    '"--token-file",tf,"--parent",par])'
+)
+
+
+MOVE_TO_APPLICATIONS = ("Move Retrova to your Applications folder, open it from there, and try again. macOS doesn't "
+                        "let the administrator helper read apps kept in Downloads, Desktop, Documents, iCloud Drive "
+                        "or an open disk image.")
+
+
+def _mac_location_problem(root: str = PKG_ROOT, home: str = REAL_HOME) -> str:
+    """Why the root helper can't load Retrova from where it is, or "". macOS privacy protection keeps root
+    out of these folders, so the helper would stop at its first import."""
+    root = os.path.realpath(root)
+    protected = [os.path.join(home, d) for d in ("Downloads", "Desktop", "Documents",
+                                                 os.path.join("Library", "Mobile Documents"))]
+    protected.append("/Volumes")
+    for p in protected:
+        p = os.path.realpath(p)
+        if root == p or root.startswith(p + os.sep):
+            return MOVE_TO_APPLICATIONS
+    return ""
+
+
 def _launch_mac(port, token_file):
+    problem = _mac_location_problem()
+    if problem:
+        raise ApiError(problem, 409)
     env = (f"SUDO_UID={int(REAL_UID)} SUDO_GID={int(REAL_GID)} SUDO_USER={shlex.quote(REAL_USER)} "
            f"RETROVA_ELEVATED=1 RETROVA_APP_DATA={shlex.quote(_app_data())}")
-    cmd = (f"cd {shlex.quote(PKG_ROOT)} && {env} nohup {shlex.quote(sys.executable)} -m retrova --serve-only "
-           f"--port {port} --token-file {shlex.quote(token_file)} --parent {os.getpid()} >/dev/null 2>&1 &")
+    cmd = (f"cd {shlex.quote(PKG_ROOT)} && {env} {shlex.quote(sys.executable)} "
+           f"-c {shlex.quote(_MAC_DAEMON)} {port} {shlex.quote(token_file)} {os.getpid()}")
     script = (f"do shell script {_applescript_quote(cmd)} with prompt "
               f"{_applescript_quote('Retrova needs administrator rights to read the drive directly. It only ever reads it.')}"
               f" with administrator privileges")
@@ -143,6 +182,8 @@ def _launch_mac(port, token_file):
         if "-128" in (r.stderr or "") or "canceled" in (r.stderr or "").lower():
             raise ApiError("Administrator access was cancelled - Retrova can still open disk images and "
                            "drives your account can read.", 403)
+        if "Operation not permitted" in (r.stderr or ""):
+            raise ApiError(MOVE_TO_APPLICATIONS, 409)
         raise ApiError(f"macOS didn't start the administrator helper: {(r.stderr or '').strip()}", 500)
 
 
