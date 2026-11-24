@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5 (24 November 2026)
+
+- **Fixed (Mac): "Allow access" could stay at "Waiting for your password" and then fail with "the administrator helper didn't start in time".** Retrova now starts its administrator helper in a way recent macOS accepts, so drives that need administrator rights open again. Thanks to Alex for reporting it.
+- **Mac: a clear message if Retrova is opened from Downloads, Desktop, Documents, iCloud Drive or the disk image.** macOS doesn't let the administrator helper read apps kept there, so Retrova now asks you to move it to Applications instead of failing with a technical error.
+- **Fixed (Mac): items removed while Retrova had administrator rights went to a hidden Trash.** They now go to your own Trash (or the drive's Trash for other drives), where Finder can put them back.
+
 ## 1.1.3 (22 October 2026)
 
 - **Fixed (Mac): the first launch could sit for minutes with no window.** At start-up the app looked up this computer's network name, and on macOS that lookup can stall the first time an app runs. Retrova only talks to itself on this computer, so it no longer looks the name up and the window opens straight away.
