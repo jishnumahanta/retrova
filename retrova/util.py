@@ -126,7 +126,11 @@ def to_trash(paths) -> dict:
                 # Refuse up front: Windows deletes permanently when a drive has no Recycle Bin.
                 failed.append({"path": p, "error": why})
                 continue
-            if send2trash is not None:
+            if IS_MAC and is_admin() and REAL_UID:
+                # The elevated engine runs as root, and send2trash would use root's own Trash
+                # (/var/root/.Trash), which the user never sees. Use the real user's Trash instead.
+                _mac_trash_as_user(p)
+            elif send2trash is not None:
                 send2trash(p)
             elif IS_MAC:
                 _mac_trash(p)
@@ -171,6 +175,51 @@ def _mac_trash(p):
     r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     if r.returncode:
         raise OSError(r.stderr.strip() or "Finder refused")
+
+
+def _mount_point(path: str) -> str:
+    """The top folder of the volume `path` is on."""
+    path = os.path.abspath(path)
+    dev = os.lstat(path).st_dev
+    while True:
+        parent = os.path.dirname(path)
+        if parent == path or os.lstat(parent).st_dev != dev:
+            return path
+        path = parent
+
+
+def _user_trash_for(p: str) -> str:
+    """The real user's Trash folder for the volume `p` is on, as Finder uses it: ~/.Trash on the
+    startup volume, <volume>/.Trashes/<uid> on any other. Same volume, so moving there is a rename,
+    never a copy."""
+    if os.lstat(p).st_dev == os.stat(REAL_HOME).st_dev:
+        trash = os.path.join(REAL_HOME, ".Trash")
+        makedirs_owned(trash)
+        return trash
+    trashes = os.path.join(_mount_point(p), ".Trashes")
+    if not os.path.isdir(trashes):
+        os.mkdir(trashes)
+        os.chmod(trashes, 0o1333)              # how macOS creates it: anyone can add, nobody can list
+    trash = os.path.join(trashes, str(REAL_UID))
+    if not os.path.isdir(trash):
+        os.mkdir(trash, 0o700)
+        os.lchown(trash, REAL_UID, REAL_GID)
+    return trash
+
+
+def _mac_trash_as_user(p):
+    """Move an item into the real user's Trash while Retrova runs as root. Ownership is left as it
+    was, so Finder's Put Back restores the item exactly."""
+    trash = _user_trash_for(p)
+    base = os.path.basename(os.path.normpath(p)) or "Untitled"
+    target = os.path.join(trash, base)
+    n = 2
+    while os.path.lexists(target):
+        stem, ext = os.path.splitext(base)
+        target = os.path.join(trash, f"{stem} {n}{ext}")
+        n += 1
+    os.rename(p, target)                       # same volume: fails rather than copying
+    return target
 
 
 def reveal(path: str):
